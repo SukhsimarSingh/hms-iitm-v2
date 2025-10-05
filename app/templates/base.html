@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Hospital Management System{% endblock %}</title>
+    <title>HMS</title>
 </head>
 <body>
-    {% block nav %}
+    {% block navbar %}
     <nav>
-        <a href="/">Home</a>
-        <a href="/about">About</a>
-        <a href="/contact">Contact</a>
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('login') }}">Login</a>
     </nav>
     {% endblock %}
-    {% block content %}{% endblock %}
+    <div>
+        {% block content %}
+            
+        {% endblock %}
+    </div>
 </body>
 </html>
