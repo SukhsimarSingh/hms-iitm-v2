@@ -4,6 +4,7 @@ from .database import db
 from .models import User
 from .config import Config
 from .security import jwt
+
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -19,6 +20,12 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 def create_app():
     app = Flask(__name__, template_folder='templates')
     app.config.from_object(Config)
+
+    from .auth import auth
+    from .routes import views
+
+    app.register_blueprint(views, url_prefix='/')
+    app.register_blueprint(auth, url_prefix='/auth')
     
     db.init_app(app)
     jwt.init_app(app)
@@ -36,7 +43,7 @@ def create_app():
 
             db.session.add(_admin)
             db.session.commit()
-    
+
     return app
 
 app = create_app()

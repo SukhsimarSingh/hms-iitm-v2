@@ -1,6 +1,7 @@
 # from werkzeug.security import generate_password_hash, check_password_hash
 import bcrypt
 from app.database import db
+from sqlalchemy.sql import func
 
 # DB MODELS
 # User Class
@@ -8,22 +9,20 @@ class User(db.Model):
     __tablename__ = 'user'
 
     id = db.Column(db.Integer, primary_key=True)
-    active = db.Column('is_active', db.Boolean(), nullable=False, server_default='1')
+    active = db.Column(db.Boolean, nullable=False, default=True)
 
     username = db.Column(db.String(255), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    confirmed_at = db.Column(db.DateTime())
+    confirmed_at = db.Column(db.DateTime(), default=func.now())
 
     # User information
-    first_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, server_default='')
-    last_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, server_default='')
+    first_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, default='')
+    last_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, default='')
 
-    role = db.Column(db.String(255), nullable=False, server_default='patient')
+    role = db.Column(db.String(255), nullable=False, default='patient')
 
-    # fs_uniquifier =  db.Column(db.String(255), unique=True, nullable=False)
-    # roles = db.relationship('Role', secondary='user_roles', backref=db.backref('user', lazy='dynamic'))
-    # patients = db.relationship('Patient', backref='users')
+    doctor = db.relationship('Doctor', backref='user', uselist=False)
 
     def __repr__(self) -> str:
         return f'User with the {self.id} and {self.email} created successfully'
@@ -35,30 +34,6 @@ class User(db.Model):
     def check_password(self, password):
         return bcrypt.checkpw(password.encode('utf-8'), self.password)
 
-# Role Class
-class Role(db.Model):
-    __tablename__ = 'role'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), unique=True, nullable=False)
-    description = db.Column(db.String(255))
-
-# User Roles association table
-class UserRoles(db.Model):
-    __tablename__ = 'user_roles'
-
-    id = db.Column(db.Integer(), primary_key=True)
-    user_id = db.Column(db.Integer(), db.ForeignKey('user.id', ondelete='CASCADE'))
-    role_id = db.Column(db.Integer(), db.ForeignKey('role.id', ondelete='CASCADE'))
-
-# Admin Class
-class Admin(db.Model):
-    __tablename__ = 'admin'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    # user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-
 # Doctor Class
 class Doctor(db.Model):
     __tablename__ = 'doctor'
@@ -66,6 +41,9 @@ class Doctor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     specialization = db.Column(db.String(100), nullable=False)
+    experience = db.Column(db.Float)
+    department = db.Column(db.String(100))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
 
 # Patient Class
 class Patient(db.Model):

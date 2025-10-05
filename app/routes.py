@@ -1,104 +1,161 @@
-from app import app
-from functools import wraps
+from flask import request, jsonify, Blueprint
+from flask_jwt_extended import jwt_required, current_user
 
-from flask import render_template, request, jsonify, flash
-from flask_jwt_extended import create_access_token, jwt_required, current_user
-
-from app.models import User
+from app.models import User, Doctor
 from app.database import db
-from datetime import datetime
+from app.security import roles_required
 
-# RBA
-def roles_required(required_role):
-    def wrapper(func):
-        @wraps(func)
-        @jwt_required()
-        def decorator(*args, **kwargs):
-            if current_user.role!=required_role:
-                return jsonify(message = "Access Denined - insufficient role"), 403
-            return func(*args, **kwargs)
-        return decorator
-    return wrapper
+views = Blueprint('views', __name__)
 
 # HOME
-@app.route('/')
+@views.route('/')
+@views.route('/home')
 def home():
     # return render_template('home.html')
     return jsonify(message='Home Page')
 
-# LOGIN
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # Collect the username, password from the Login form
-    if request.method=='POST':
+# GET PATIENTS / DOCTORS
+@views.route('/api/get/<string:role>', methods=['GET'])
+@jwt_required()
+def get_users(role):
+    
+    if role in ['patient', 'doctor']:
+        users = User.query.filter_by(role=role).all()
 
+        users_list = []
+
+        for user in users:
+            info = {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "email": user.email
+            }
+            
+            # If it's a doctor, include doctor-specific details
+            if role == 'doctor' and user.doctor:
+                info["doctor_details"] = {
+                    "doctor_id": user.doctor.id,
+                    "specialization": user.doctor.specialization,
+                    "experience": user.doctor.experience
+                }
+
+            users_list.append(info)
+
+        return jsonify(users_list)
+    
+    return jsonify({"message": "Role not applicable"})
+
+
+# GET DOCTOR? PATIENT DETAILS WITH USER INFO
+@views.route('/api/get/<string:role>/<string:username>', methods=['GET'])
+@jwt_required()
+def get_details(role, username):
+    try:
+        user=User.query.filter_by(username=username, role=role).first()
+
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        if role=='doctor':
+            doc_info = user.doctor           
+            return jsonify({
+                "doctor_id": doc_info.id,
+                "name": doc_info.name,
+                "specialization": doc_info.specialization,
+                "experience": doc_info.experience,
+                "user_details": {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role
+                }
+            })
+        
+        elif role=='patient':
+            return jsonify({"user_details": {
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role
+                }
+            })
+        
+        return jsonify({"message": "User not Patient or Doctor"}), 404
+        
+    except Exception as e:
+        return jsonify({"message": f"Error fetching doctor: {str(e)}"}), 500
+
+
+# ADD DOCTOR
+@views.route('/api/add/doctor', methods=['GET', 'POST'])
+@roles_required('admin')
+def add_doctor():
+    
+    if request.method=='POST':
+        
+        # Gerate a Random UUID as username for Doctor
         username = request.json.get('username', None)
-        password = request.json.get('password', None)
+        first_name = request.json.get('first_name', None)
+        last_name = request.json.get('last_name', None)
+        email = request.json.get('email', None)
 
-        user = User.query.filter_by(username=username).one_or_none()
+        # Doctor specific fields
+        specialization = request.json.get('specialization', None)
+        department = request.json.get('department', None)
+        experience = request.json.get('experience', None)
 
-        # Validating the user
-        if not user or not user.check_password(password):
-            return jsonify("Wrong username or password"), 401
+        doctor = User.query.filter_by(email=email, role='doctor').first()
 
-        access_token = create_access_token(identity=user)
-
-        return jsonify(access_token=access_token)
-
-    # Let the user log in
-    # return render_template('login.html')
-    return jsonify(message='Login Page')
-
-# REGISTER - Public access for patients to register themselves
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method=='POST':
-
-        try:
-            username = request.json.get('username', None)
-            first_name = request.json.get('first_name', None)
-            last_name = request.json.get('last_name', None)
-
-            email = request.json.get('email', None)
-            password = request.json.get('password', None)
-            retype_password = request.json.get('retype_password', None)
-
-            user = User.query.filter_by(username=username).one_or_none()
-
-            if not user:
-                if password!=retype_password:
-                    flash('Passwords not matching!')
-
-                new_user = User(username=username, email=email,
-                            confirmed_at=datetime.now(), first_name=first_name, last_name=last_name, role='patient')
-                    
-                new_user.set_password(password)
+        if not doctor:
+            try:
+                name = first_name + " " + last_name
                 
-                db.session.add(new_user)
+                _user = User(username=username, first_name=first_name, last_name=last_name, email=email, role='doctor')
+                _user.set_password(username)
+                
+                db.session.add(_user)
+                db.session.flush()
+
+                _doctor = Doctor(name=name, specialization=specialization, department=department, experience=experience, user_id=_user.id)
+                
+                db.session.add(_doctor)
                 db.session.commit()
+
+                return jsonify({
+                    "message": "Doctor Added!",
+                    "doctor_id": _doctor.id,
+                    "user_id": _user.id,
+                    "username": username}), 201
                 
-                return jsonify(message='User created!'), 201
-        
-        except Exception as e:
-            return e    
-        
-        return jsonify(message='User already exists'), 400
-        
-    return jsonify(message='Registration Page')
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({"message": f"Error creating doctor: {str(e)}"}), 500
+
+        return jsonify({"message": "Doctor already exists!"}), 400
+    
+    return jsonify({"message": "Add Doctor Page"})
+
+
+# ADMIN
+@views.route('/admin', methods=['GET', 'POST'])
+@roles_required("admin")
+def admin():
+    return jsonify(message='Admin Page')
+
 
 # DASHBOARD
-@app.route('/dashboard', methods=['GET'])
+@views.route('/api/dashboard', methods=['GET'])
 @jwt_required()
 def dashboard():
     return jsonify(
         id=current_user.id,
         email=current_user.email,
         first_name=current_user.first_name,
-        current_user=current_user.last_name
+        last_name=current_user.last_name
     )
-
-# ADMIN
-@app.route('/admin', methods=['GET', 'POST'])
-@roles_required("admin")
-def admin():
-    return jsonify(message='Admin Page')
