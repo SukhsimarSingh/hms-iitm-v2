@@ -15,7 +15,7 @@ def roles_required(required_role):
         @jwt_required()
         def decorator(*args, **kwargs):
             if current_user.role!=required_role:
-                return jsonify(message = "Access denined - insufficient role"), 403
+                return jsonify(message = "Access Denined - insufficient role"), 403
             return func(*args, **kwargs)
         return decorator
     return wrapper
@@ -23,7 +23,8 @@ def roles_required(required_role):
 # HOME
 @app.route('/')
 def home():
-    return render_template('home.html')
+    # return render_template('home.html')
+    return jsonify(message='Home Page')
 
 # LOGIN
 @app.route('/login', methods=['GET', 'POST'])
@@ -45,7 +46,8 @@ def login():
         return jsonify(access_token=access_token)
 
     # Let the user log in
-    return render_template('login.html')
+    # return render_template('login.html')
+    return jsonify(message='Login Page')
 
 # REGISTER - Public access for patients to register themselves
 @app.route('/register', methods=['GET', 'POST'])
@@ -75,14 +77,14 @@ def register():
                 db.session.add(new_user)
                 db.session.commit()
                 
-                return jsonify(message='User created!')
+                return jsonify(message='User created!'), 201
         
         except Exception as e:
             return e    
         
-        return jsonify(message='User already exists')
+        return jsonify(message='User already exists'), 400
         
-    return "Register Page"
+    return jsonify(message='Registration Page')
 
 # DASHBOARD
 @app.route('/dashboard', methods=['GET'])
@@ -99,4 +101,4 @@ def dashboard():
 @app.route('/admin', methods=['GET', 'POST'])
 @roles_required("admin")
 def admin():
-    return "Admins allowed"
+    return jsonify(message='Admin Page')
