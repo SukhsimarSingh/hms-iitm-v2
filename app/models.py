@@ -1,37 +1,42 @@
-from hmac import compare_digest
-
+# from werkzeug.security import generate_password_hash, check_password_hash
+import bcrypt
 from app.database import db
-from flask_security import UserMixin, RoleMixin
 
 # DB MODELS
 # User Class
-class User(db.Model, UserMixin):
+class User(db.Model):
     __tablename__ = 'user'
 
     id = db.Column(db.Integer, primary_key=True)
     active = db.Column('is_active', db.Boolean(), nullable=False, server_default='1')
 
-    # username = db.Column(db.String(255), unique=True, nullable=False)
+    username = db.Column(db.String(255), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    confirmed_at = db.Column(db.DateTime())
     password = db.Column(db.String(255), nullable=False)
-    
+    confirmed_at = db.Column(db.DateTime())
+
     # User information
     first_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, server_default='')
     last_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, server_default='')
 
-    # fs_uniquifier =  db.Column(db.String(255), unique=True, nullable=False)
-    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('user', lazy='dynamic'))
-    # patients = db.relationship('Patient', backref='users')
+    role = db.Column(db.String(255), nullable=False, server_default='patient')
 
-    def check_password(self, password):
-        return compare_digest(password, "password")
+    # fs_uniquifier =  db.Column(db.String(255), unique=True, nullable=False)
+    # roles = db.relationship('Role', secondary='user_roles', backref=db.backref('user', lazy='dynamic'))
+    # patients = db.relationship('Patient', backref='users')
 
     def __repr__(self) -> str:
         return f'User with the {self.id} and {self.email} created successfully'
 
+    def set_password(self, password):
+        hashed_pwd = bcrypt.hashpw(password=password.encode('utf-8'), salt=bcrypt.gensalt())
+        self.password = hashed_pwd
+    
+    def check_password(self, password):
+        return bcrypt.checkpw(password.encode('utf-8'), self.password)
+
 # Role Class
-class Role(db.Model, RoleMixin):
+class Role(db.Model):
     __tablename__ = 'role'
 
     id = db.Column(db.Integer, primary_key=True)
