@@ -94,7 +94,8 @@ hms-iitm-v2/
 
 ### Dashboard
 - `GET /api/dashboard` - User dashboard (requires JWT)
-- `GET /admin` - Admin dashboard (admin only)
+- `GET /api/admin/dashboard` - Comprehensive admin dashboard with all data (admin only)
+- `GET /admin` - Admin page (legacy route)
 
 ## Setup Instructions
 
@@ -155,6 +156,91 @@ On first run, an admin account is automatically created with credentials from yo
 - All passwords are hashed using bcrypt before storage
 - JWT tokens are required for protected routes
 - Role-based access control ensures proper authorization
+
+## Admin Dashboard
+
+The admin dashboard provides a comprehensive view of all system data in a single API call, perfect for displaying on an admin interface.
+
+### Endpoint: `GET /api/admin/dashboard`
+
+**Authorization**: Admin only
+
+**Response Structure**:
+```json
+{
+  "message": "Admin dashboard data retrieved successfully",
+  "admin": {
+    "username": "admin",
+    "email": "admin@hospital.com",
+    "first_name": "Admin",
+    "last_name": "User"
+  },
+  "statistics": {
+    "total_doctors": 10,
+    "active_doctors": 8,
+    "blacklisted_doctors": 2,
+    "total_patients": 50,
+    "active_patients": 48,
+    "blacklisted_patients": 2,
+    "total_appointments": 25,
+    "pending_appointments": 5,
+    "completed_appointments": 20
+  },
+  "registered_doctors": [
+    {
+      "user_id": 2,
+      "username": "dr.abcde",
+      "email": "abcde@hospital.com",
+      "first_name": "Dr.",
+      "last_name": "Abcde",
+      "active": true,
+      "doctor_id": 1,
+      "name": "Dr. Abcde",
+      "specialization": "Cardiology",
+      "department": "Heart Center",
+      "experience": 10.5,
+      "availability": "Available"
+    }
+  ],
+  "registered_patients": [
+    {
+      "user_id": 3,
+      "username": "mr.abcde",
+      "email": "patient@email.com",
+      "first_name": "Mr.",
+      "last_name": "Abcde",
+      "active": true
+    }
+  ],
+  "upcoming_appointments": [
+    {
+      "id": 1,
+      "date": "2026-03-15",
+      "time": "10:00:00",
+      "status": "pending",
+      "patient": {
+        "id": 3,
+        "name": "Mr. Abcde",
+        "username": "mr.abcde"
+      },
+      "doctor": {
+        "id": 1,
+        "name": "Dr. Parst",
+        "specialization": "Cardiology",
+        "department": "Heart Center"
+      }
+    }
+  ]
+}
+```
+
+### Features:
+- **Single API Call**: All dashboard data in one request
+- **Statistics Summary**: Quick overview of system metrics
+- **Complete User Lists**: All doctors and patients with full details
+- **Appointment Overview**: All appointments with patient and doctor info
+- **Active Status**: Shows which users are active or blacklisted
+- **Ready for UI**: Structured data perfect for frontend rendering
 
 ## Blacklist/Ban Feature
 
@@ -219,4 +305,4 @@ This project is built for educational purposes as part of IITM MAD2 course.
 
 ## Author
 
-Sukh Singh
+Sukhsimar Singh

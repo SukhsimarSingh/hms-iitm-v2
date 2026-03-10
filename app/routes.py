@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from flask_jwt_extended import jwt_required, current_user
 
-from app.models import User, Doctor
+from app.models import User, Doctor, Patient, Appointment
 from app.database import db
 from app.security import roles_required
 
@@ -504,11 +504,121 @@ def get_blacklisted_users():
         return jsonify({"message": f"Error retrieving blacklisted users: {str(e)}"}), 500
 
 
+# ADMIN DASHBOARD
+@views.route('/api/admin/dashboard', methods=['GET'])
+@roles_required("admin")
+def admin_dashboard():
+    """Get comprehensive admin dashboard data"""
+    
+    try:
+        # Get all doctors with their details
+        doctors = User.query.filter_by(role='doctor').all()
+        doctors_list = []
+        
+        for user in doctors:
+            doctor_info = {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "active": user.active,
+                "confirmed_at": user.confirmed_at.isoformat() if user.confirmed_at else None
+            }
+            
+            if user.doctor:
+                doctor_info["doctor_id"] = user.doctor.id
+                doctor_info["name"] = user.doctor.name
+                doctor_info["specialization"] = user.doctor.specialization
+                doctor_info["department"] = user.doctor.department
+                doctor_info["experience"] = user.doctor.experience
+                doctor_info["availability"] = user.doctor.availability
+            
+            doctors_list.append(doctor_info)
+        
+        # Get all patients with their details
+        patients = User.query.filter_by(role='patient').all()
+        patients_list = []
+        
+        for user in patients:
+            patient_info = {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "active": user.active,
+                "confirmed_at": user.confirmed_at.isoformat() if user.confirmed_at else None
+            }
+            
+            patients_list.append(patient_info)
+        
+        # Get upcoming appointments (you'll need to filter by date when appointments are implemented)
+        from app.models import Appointment
+        appointments = Appointment.query.all()
+        appointments_list = []
+        
+        for appointment in appointments:
+            # Get patient and doctor details
+            patient = User.query.join(Patient).filter(Patient.id == appointment.patient_id).first()
+            doctor = Doctor.query.get(appointment.doctor_id)
+            
+            appointment_info = {
+                "id": appointment.id,
+                "date": appointment.date.isoformat() if appointment.date else None,
+                "time": appointment.time.isoformat() if appointment.time else None,
+                "status": appointment.status,
+                "patient": {
+                    "id": patient.id if patient else None,
+                    "name": f"{patient.first_name} {patient.last_name}" if patient else "N/A",
+                    "username": patient.username if patient else None
+                },
+                "doctor": {
+                    "id": doctor.id if doctor else None,
+                    "name": doctor.name if doctor else "N/A",
+                    "specialization": doctor.specialization if doctor else None,
+                    "department": doctor.department if doctor else None
+                }
+            }
+            
+            appointments_list.append(appointment_info)
+        
+        # Get statistics
+        stats = {
+            "total_doctors": len(doctors_list),
+            "active_doctors": len([d for d in doctors_list if d['active']]),
+            "blacklisted_doctors": len([d for d in doctors_list if not d['active']]),
+            "total_patients": len(patients_list),
+            "active_patients": len([p for p in patients_list if p['active']]),
+            "blacklisted_patients": len([p for p in patients_list if not p['active']]),
+            "total_appointments": len(appointments_list),
+            "pending_appointments": len([a for a in appointments_list if a['status'] == 'pending']),
+            "completed_appointments": len([a for a in appointments_list if a['status'] == 'completed'])
+        }
+        
+        return jsonify({
+            "message": "Admin dashboard data retrieved successfully",
+            "admin": {
+                "username": current_user.username,
+                "email": current_user.email,
+                "first_name": current_user.first_name,
+                "last_name": current_user.last_name
+            },
+            "statistics": stats,
+            "registered_doctors": doctors_list,
+            "registered_patients": patients_list,
+            "upcoming_appointments": appointments_list
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"message": f"Error retrieving admin dashboard: {str(e)}"}), 500
+
+
 # ADMIN
 @views.route('/admin', methods=['GET', 'POST'])
 @roles_required("admin")
 def admin():
-    return jsonify(message='Admin Page')
+    return jsonify(message='Admin Page - Use /api/admin/dashboard for full dashboard data')
 
 
 # DASHBOARD
