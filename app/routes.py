@@ -92,7 +92,7 @@ def get_details(role, username):
         return jsonify({"message": "User not Patient or Doctor"}), 404
         
     except Exception as e:
-        return jsonify({"message": f"Error fetching doctor: {str(e)}"}), 500
+        return jsonify({"message": f"Error fetching user: {str(e)}"}), 500
 
 
 # ADD DOCTOR
@@ -102,16 +102,21 @@ def add_doctor():
     
     if request.method=='POST':
         
-        # Gerate a Random UUID as username for Doctor
+        # Get required fields
         username = request.json.get('username', None)
         first_name = request.json.get('first_name', None)
         last_name = request.json.get('last_name', None)
         email = request.json.get('email', None)
+        password = request.json.get('password', None)
 
         # Doctor specific fields
         specialization = request.json.get('specialization', None)
         department = request.json.get('department', None)
         experience = request.json.get('experience', None)
+        
+        # Validate required fields
+        if not all([username, first_name, last_name, password, email, specialization, department]):
+            return jsonify({"message": "Missing required fields"}), 400
 
         doctor = User.query.filter_by(email=email, role='doctor').first()
 
@@ -120,7 +125,7 @@ def add_doctor():
                 name = first_name + " " + last_name
                 
                 _user = User(username=username, first_name=first_name, last_name=last_name, email=email, role='doctor')
-                _user.set_password(username)
+                _user.set_password(password)
                 
                 db.session.add(_user)
                 db.session.flush()
@@ -553,8 +558,7 @@ def admin_dashboard():
             
             patients_list.append(patient_info)
         
-        # Get upcoming appointments (you'll need to filter by date when appointments are implemented)
-        from app.models import Appointment
+        # Get upcoming appointments
         appointments = Appointment.query.all()
         appointments_list = []
         
@@ -612,22 +616,3 @@ def admin_dashboard():
         
     except Exception as e:
         return jsonify({"message": f"Error retrieving admin dashboard: {str(e)}"}), 500
-
-
-# ADMIN
-@views.route('/admin', methods=['GET', 'POST'])
-@roles_required("admin")
-def admin():
-    return jsonify(message='Admin Page - Use /api/admin/dashboard for full dashboard data')
-
-
-# DASHBOARD
-@views.route('/api/dashboard', methods=['GET'])
-@jwt_required()
-def dashboard():
-    return jsonify(
-        id=current_user.id,
-        email=current_user.email,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name
-    )
