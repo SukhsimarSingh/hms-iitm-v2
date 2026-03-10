@@ -43,12 +43,13 @@ class Doctor(db.Model):
     name = db.Column(db.String, nullable=False)
     specialization = db.Column(db.String, nullable=False)
     experience = db.Column(db.Float)
-    department = db.Column(db.String)
 
     availability = db.Column(db.String, nullable=False, default='Available')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=True)
 
     appointment = db.relationship('Appointment', backref='doctor')
+    department = db.relationship('Department', backref='doctors')
 
 # Patient Class
 class Patient(db.Model):
@@ -90,6 +91,17 @@ class Treatment(db.Model):
     notes = db.Column(db.String, nullable=False)
 
     medicine = db.relationship('Medicine', backref='treatment')
+
+# Department Class
+class Department(db.Model):
+    __tablename__ = 'department'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False, unique=True)
+    description = db.Column(db.String, nullable=False)
+
+    def __repr__(self) -> str:
+        return f'Department: {self.name}'
 
 # Medicine Class
 class Medicine(db.Model):
