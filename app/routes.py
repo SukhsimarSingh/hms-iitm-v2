@@ -934,6 +934,47 @@ def create_appointment():
         appointment_date = dt.fromisoformat(date).date() if isinstance(date, str) else date
         appointment_time = dt.fromisoformat(time).time() if isinstance(time, str) else time
         
+        # CONFLICT PREVENTION: Check for double booking
+        # Check if doctor already has an appointment at this date and time
+        existing_appointment = Appointment.query.filter_by(
+            doctor_id=doctor_id,
+            date=appointment_date,
+            time=appointment_time
+        ).filter(
+            Appointment.status.in_(['pending', 'confirmed'])
+        ).first()
+        
+        if existing_appointment:
+            return jsonify({
+                "message": "Doctor is not available at this time slot. Please choose another time.",
+                "conflict": {
+                    "appointment_id": existing_appointment.id,
+                    "date": existing_appointment.date.isoformat(),
+                    "time": existing_appointment.time.isoformat(),
+                    "status": existing_appointment.status
+                }
+            }), 409
+        
+        # Check if patient already has an appointment at this time
+        patient_conflict = Appointment.query.filter_by(
+            patient_id=patient_id,
+            date=appointment_date,
+            time=appointment_time
+        ).filter(
+            Appointment.status.in_(['pending', 'confirmed'])
+        ).first()
+        
+        if patient_conflict:
+            return jsonify({
+                "message": "You already have an appointment at this time slot.",
+                "conflict": {
+                    "appointment_id": patient_conflict.id,
+                    "date": patient_conflict.date.isoformat(),
+                    "time": patient_conflict.time.isoformat(),
+                    "doctor_id": patient_conflict.doctor_id
+                }
+            }), 409
+        
         # Create appointment
         appointment = Appointment(
             patient_id=patient_id,
@@ -987,16 +1028,58 @@ def update_appointment(appointment_id):
     try:
         from datetime import datetime as dt
         
+        # Store new date/time for conflict checking
+        new_date = None
+        new_time = None
+        
         # Update fields
         if 'date' in data:
-            appointment.date = dt.fromisoformat(data['date']).date() if isinstance(data['date'], str) else data['date']
+            new_date = dt.fromisoformat(data['date']).date() if isinstance(data['date'], str) else data['date']
         
         if 'time' in data:
-            appointment.time = dt.fromisoformat(data['time']).time() if isinstance(data['time'], str) else data['time']
+            new_time = dt.fromisoformat(data['time']).time() if isinstance(data['time'], str) else data['time']
+        
+        # CONFLICT PREVENTION: Check for conflicts if date or time is being changed
+        if new_date or new_time:
+            check_date = new_date if new_date else appointment.date
+            check_time = new_time if new_time else appointment.time
+            
+            # Check if doctor has another appointment at the new time
+            conflict = Appointment.query.filter_by(
+                doctor_id=appointment.doctor_id,
+                date=check_date,
+                time=check_time
+            ).filter(
+                Appointment.id != appointment_id,  # Exclude current appointment
+                Appointment.status.in_(['pending', 'confirmed'])
+            ).first()
+            
+            if conflict:
+                return jsonify({
+                    "message": "Doctor is not available at this time slot. Please choose another time.",
+                    "conflict": {
+                        "appointment_id": conflict.id,
+                        "date": conflict.date.isoformat(),
+                        "time": conflict.time.isoformat()
+                    }
+                }), 409
+            
+            # Update the fields
+            if new_date:
+                appointment.date = new_date
+            if new_time:
+                appointment.time = new_time
         
         if 'status' in data:
             # Only doctors and admins can change status
             if current_user.role in ['doctor', 'admin']:
+                # Validate status
+                valid_statuses = ['pending', 'confirmed', 'completed', 'cancelled']
+                if data['status'] not in valid_statuses:
+                    return jsonify({
+                        "message": "Invalid status",
+                        "allowed_values": valid_statuses
+                    }), 400
                 appointment.status = data['status']
             else:
                 return jsonify({"message": "Only doctors and admins can change appointment status"}), 403
@@ -1083,3 +1166,202 @@ def delete_appointment(appointment_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Error deleting appointment: {str(e)}"}), 500
+
+
+# GET ALL APPOINTMENTS
+@views.route('/api/appointments/all', methods=['GET'])
+@roles_required('admin')
+def get_all_appointments():
+    """Get all appointments with filtering options"""
+    
+    # Query parameters for filtering
+    status = request.args.get('status')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    doctor_id = request.args.get('doctor_id')
+    patient_id = request.args.get('patient_id')
+    
+    try:
+        from datetime import datetime as dt
+        
+        # Start with base query
+        query = Appointment.query
+        
+        # Apply filters
+        if status:
+            query = query.filter_by(status=status)
+        
+        if doctor_id:
+            query = query.filter_by(doctor_id=int(doctor_id))
+        
+        if patient_id:
+            query = query.filter_by(patient_id=int(patient_id))
+        
+        if date_from:
+            date_from_obj = dt.fromisoformat(date_from).date()
+            query = query.filter(Appointment.date >= date_from_obj)
+        
+        if date_to:
+            date_to_obj = dt.fromisoformat(date_to).date()
+            query = query.filter(Appointment.date <= date_to_obj)
+        
+        # Order by date and time (most recent first)
+        appointments = query.order_by(Appointment.date.desc(), Appointment.time.desc()).all()
+        
+        appointments_list = []
+        
+        for appointment in appointments:
+            # Get patient details
+            patient = Patient.query.get(appointment.patient_id)
+            patient_user = User.query.get(patient.user_id) if patient else None
+            
+            # Get doctor details
+            doctor = Doctor.query.get(appointment.doctor_id)
+            doctor_user = User.query.get(doctor.user_id) if doctor else None
+            
+            appointment_info = {
+                "id": appointment.id,
+                "date": appointment.date.isoformat() if appointment.date else None,
+                "time": appointment.time.isoformat() if appointment.time else None,
+                "status": appointment.status,
+                "patient": {
+                    "id": patient.id if patient else None,
+                    "name": patient.name if patient else "N/A",
+                    "age": patient.age if patient else None,
+                    "contact": patient.contact if patient else None,
+                    "username": patient_user.username if patient_user else None
+                },
+                "doctor": {
+                    "id": doctor.id if doctor else None,
+                    "name": doctor.name if doctor else "N/A",
+                    "specialization": doctor.specialization if doctor else None,
+                    "department_id": doctor.department_id if doctor else None
+                },
+                "has_treatment": appointment.treatment is not None
+            }
+            
+            # Add treatment summary if exists
+            if appointment.treatment:
+                appointment_info["treatment_summary"] = {
+                    "id": appointment.treatment.id,
+                    "diagnosis": appointment.treatment.diagnosis,
+                    "has_prescription": bool(appointment.treatment.prescription),
+                    "medicine_count": len(appointment.treatment.medicine)
+                }
+            
+            appointments_list.append(appointment_info)
+        
+        # Calculate statistics
+        stats = {
+            "total": len(appointments_list),
+            "pending": len([a for a in appointments_list if a['status'] == 'pending']),
+            "completed": len([a for a in appointments_list if a['status'] == 'completed']),
+            "cancelled": len([a for a in appointments_list if a['status'] == 'cancelled']),
+            "with_treatment": len([a for a in appointments_list if a['has_treatment']])
+        }
+        
+        return jsonify({
+            "message": "Appointments retrieved successfully",
+            "statistics": stats,
+            "filters_applied": {
+                "status": status,
+                "date_from": date_from,
+                "date_to": date_to,
+                "doctor_id": doctor_id,
+                "patient_id": patient_id
+            },
+            "appointments": appointments_list
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"message": f"Error retrieving appointments: {str(e)}"}), 500
+
+
+# GET APPOINTMENT DETAILS
+@views.route('/api/appointment/<int:appointment_id>', methods=['GET'])
+@jwt_required()
+def get_appointment_details(appointment_id):
+    """Get detailed information about a specific appointment"""
+    
+    appointment = Appointment.query.get(appointment_id)
+    
+    if not appointment:
+        return jsonify({"message": "Appointment not found"}), 404
+    
+    # Check authorization
+    patient = Patient.query.get(appointment.patient_id)
+    doctor = Doctor.query.get(appointment.doctor_id)
+    
+    # Only allow access to involved parties or admin
+    authorized = False
+    if current_user.role == 'admin':
+        authorized = True
+    elif current_user.role == 'patient' and patient and patient.user_id == current_user.id:
+        authorized = True
+    elif current_user.role == 'doctor' and doctor and doctor.user_id == current_user.id:
+        authorized = True
+    
+    if not authorized:
+        return jsonify({"message": "Access denied - You can only view your own appointments"}), 403
+    
+    try:
+        # Get patient details
+        patient_user = User.query.get(patient.user_id) if patient else None
+        
+        # Get doctor details
+        doctor_user = User.query.get(doctor.user_id) if doctor else None
+        
+        appointment_info = {
+            "id": appointment.id,
+            "date": appointment.date.isoformat() if appointment.date else None,
+            "time": appointment.time.isoformat() if appointment.time else None,
+            "status": appointment.status,
+            "patient": {
+                "id": patient.id if patient else None,
+                "name": patient.name if patient else "N/A",
+                "age": patient.age if patient else None,
+                "contact": patient.contact if patient else None,
+                "user": {
+                    "username": patient_user.username if patient_user else None,
+                    "email": patient_user.email if patient_user else None
+                }
+            },
+            "doctor": {
+                "id": doctor.id if doctor else None,
+                "name": doctor.name if doctor else "N/A",
+                "specialization": doctor.specialization if doctor else None,
+                "experience": doctor.experience if doctor else None,
+                "user": {
+                    "username": doctor_user.username if doctor_user else None,
+                    "email": doctor_user.email if doctor_user else None
+                }
+            }
+        }
+        
+        # Add treatment details if exists
+        if appointment.treatment:
+            treatment = appointment.treatment
+            medicines = []
+            
+            for medicine in treatment.medicine:
+                medicines.append({
+                    "id": medicine.id,
+                    "name": medicine.name,
+                    "description": medicine.description
+                })
+            
+            appointment_info["treatment"] = {
+                "id": treatment.id,
+                "diagnosis": treatment.diagnosis,
+                "prescription": treatment.prescription,
+                "notes": treatment.notes,
+                "medicines": medicines
+            }
+        
+        return jsonify({
+            "message": "Appointment details retrieved successfully",
+            "appointment": appointment_info
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"message": f"Error retrieving appointment details: {str(e)}"}), 500
