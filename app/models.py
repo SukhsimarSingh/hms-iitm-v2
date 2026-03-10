@@ -39,18 +39,29 @@ class Doctor(db.Model):
     __tablename__ = 'doctor'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    specialization = db.Column(db.String(100), nullable=False)
+
+    name = db.Column(db.String, nullable=False)
+    specialization = db.Column(db.String, nullable=False)
     experience = db.Column(db.Float)
-    department = db.Column(db.String(100))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    department = db.Column(db.String)
+
+    availability = db.Column(db.String, nullable=False, default='Available')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    appointment = db.relationship('Appointment', backref='doctor')
 
 # Patient Class
 class Patient(db.Model):
     __tablename__ = 'patient'
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+
+    name = db.Column(db.String, nullable=False)
+    age = db.Column(db.Integer, nullable=False)
+    contact = db.Column(db.String, nullable=False)
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    appointment = db.relationship('Appointment', backref='patient')
 
 # Appointment Class
 class Appointment(db.Model):
@@ -59,31 +70,33 @@ class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.id'), nullable=False)
+
     date = db.Column(db.Date, nullable=False)
     time = db.Column(db.Time, nullable=False)
-    status = db.Column(db.String(100), nullable=False)
+
+    status = db.Column(db.String, nullable=False)
+    treatment = db.relationship('Treatment', backref='appointment', uselist=False)
 
 # Treatment Class
 class Treatment(db.Model):
     __tablename__ = 'treatment'
 
     id = db.Column(db.Integer, primary_key=True)
-    diagnosis = db.Column(db.String(100), nullable=False)
-    prescription = db.Column(db.String(100), nullable=False)
-    notes = db.Column(db.String(100), nullable=False)
 
-# Department Class
-class Department(db.Model):
-    __tablename__ = 'department'
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.String(100), nullable=False)
+    diagnosis = db.Column(db.String, nullable=False)
+    prescription = db.Column(db.String, nullable=False)
+    notes = db.Column(db.String, nullable=False)
+
+    medicine = db.relationship('Medicine', backref='treatment')
 
 # Medicine Class
 class Medicine(db.Model):
     __tablename__ = 'medicine'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String, nullable=False)
+    description = db.Column(db.String, nullable=False)
+
+    treatment_id = db.Column(db.Integer, db.ForeignKey('treatment.id'), nullable=False)

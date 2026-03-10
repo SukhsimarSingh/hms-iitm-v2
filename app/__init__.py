@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_migrate import Migrate
 
 from .database import db
 from .models import User
@@ -36,13 +37,21 @@ def create_app():
         admin = User.query.filter_by(email=ADMIN_EMAIL).one_or_none()
 
         if not admin:
-            _admin = User(username=ADMIN_USERNAME, email=ADMIN_EMAIL, confirmed_at=datetime.now(), 
-                          first_name='Sukh', last_name='Singh', role='admin')
+            _admin = User(username=ADMIN_USERNAME, email=ADMIN_EMAIL, confirmed_at=datetime.now(), # type: ignore
+                          first_name='Sukh', last_name='Singh', role='admin')  # type: ignore
             
             _admin.set_password(ADMIN_PASSWORD)
 
-            db.session.add(_admin)
-            db.session.commit()
+            try:
+                db.session.add(_admin)
+                db.session.commit()
+                app.logger.info('Admin added successfully')
+
+            except Exception as e:
+                db.session.rollback()
+                app.logger.info('%s Error adding admin', e)
+
+    Migrate(app=app, db=db, render_as_batch=True)
 
     return app
 
