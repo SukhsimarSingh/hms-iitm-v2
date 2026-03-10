@@ -30,9 +30,10 @@ def create_app():
     
     db.init_app(app)
     jwt.init_app(app)
+    
+    migrate = Migrate(app=app, db=db, render_as_batch=True)
 
     with app.app_context():
-        db.create_all()
 
         admin = User.query.filter_by(email=ADMIN_EMAIL).one_or_none()
 
@@ -50,8 +51,6 @@ def create_app():
             except Exception as e:
                 db.session.rollback()
                 app.logger.info('%s Error adding admin', e)
-
-    Migrate(app=app, db=db, render_as_batch=True)
 
     return app
 
