@@ -616,3 +616,160 @@ def admin_dashboard():
         
     except Exception as e:
         return jsonify({"message": f"Error retrieving admin dashboard: {str(e)}"}), 500
+
+
+# DOCTOR DASHBOARD
+@views.route('/api/doctor/dashboard', methods=['GET'])
+@roles_required('doctor')
+def doctor_dashboard():
+    """Get comprehensive doctor dashboard data"""
+    
+    try:
+        # Get doctor record
+        doctor = current_user.doctor
+        
+        if not doctor:
+            return jsonify({"message": "Doctor profile not found"}), 404
+        
+        # Get doctor's upcoming appointments
+        upcoming_appointments = Appointment.query.filter_by(
+            doctor_id=doctor.id
+        ).all()
+        
+        appointments_list = []
+        for appointment in upcoming_appointments:
+            # Get patient details
+            patient_record = Patient.query.get(appointment.patient_id)
+            patient_user = User.query.get(patient_record.user_id) if patient_record else None
+            
+            appointment_info = {
+                "id": appointment.id,
+                "date": appointment.date.isoformat() if appointment.date else None,
+                "time": appointment.time.isoformat() if appointment.time else None,
+                "status": appointment.status,
+                "patient": {
+                    "id": patient_record.id if patient_record else None,
+                    "name": patient_record.name if patient_record else "N/A",
+                    "age": patient_record.age if patient_record else None,
+                    "contact": patient_record.contact if patient_record else None,
+                    "username": patient_user.username if patient_user else None,
+                    "email": patient_user.email if patient_user else None
+                }
+            }
+            
+            # Add treatment info if exists
+            if appointment.treatment:
+                appointment_info["treatment"] = {
+                    "id": appointment.treatment.id,
+                    "diagnosis": appointment.treatment.diagnosis,
+                    "prescription": appointment.treatment.prescription,
+                    "notes": appointment.treatment.notes
+                }
+            
+            appointments_list.append(appointment_info)
+        
+        # Get patient history (all patients this doctor has seen)
+        all_appointments = Appointment.query.filter_by(doctor_id=doctor.id).all()
+        patient_ids = list(set([apt.patient_id for apt in all_appointments]))
+        
+        patient_history = []
+        for patient_id in patient_ids:
+            patient_record = Patient.query.get(patient_id)
+            if patient_record:
+                patient_user = User.query.get(patient_record.user_id)
+                
+                # Count appointments for this patient
+                patient_appointments = [a for a in all_appointments if a.patient_id == patient_id]
+                
+                patient_info = {
+                    "patient_id": patient_record.id,
+                    "name": patient_record.name,
+                    "age": patient_record.age,
+                    "contact": patient_record.contact,
+                    "username": patient_user.username if patient_user else None,
+                    "email": patient_user.email if patient_user else None,
+                    "total_appointments": len(patient_appointments),
+                    "last_visit": max([a.date for a in patient_appointments if a.date]).isoformat() if patient_appointments else None
+                }
+                
+                patient_history.append(patient_info)
+        
+        # Statistics
+        stats = {
+            "total_appointments": len(all_appointments),
+            "upcoming_appointments": len([a for a in appointments_list if a['status'] == 'pending']),
+            "completed_appointments": len([a for a in all_appointments if a.status == 'completed']),
+            "total_patients": len(patient_history)
+        }
+        
+        return jsonify({
+            "message": "Doctor dashboard data retrieved successfully",
+            "doctor": {
+                "user_id": current_user.id,
+                "doctor_id": doctor.id,
+                "username": current_user.username,
+                "email": current_user.email,
+                "name": doctor.name,
+                "first_name": current_user.first_name,
+                "last_name": current_user.last_name,
+                "specialization": doctor.specialization,
+                "department": doctor.department,
+                "experience": doctor.experience,
+                "availability": doctor.availability
+            },
+            "statistics": stats,
+            "upcoming_appointments": appointments_list,
+            "patient_history": patient_history
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"message": f"Error retrieving doctor dashboard: {str(e)}"}), 500
+
+
+# UPDATE AVAILABILITY
+@views.route('/api/doctor/availability', methods=['PUT', 'PATCH'])
+@roles_required('doctor')
+def update_availability():
+    """Update doctor availability status"""
+    
+    doctor = current_user.doctor
+    
+    if not doctor:
+        return jsonify({"message": "Doctor profile not found"}), 404
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
+    if 'availability' not in data:
+        return jsonify({"message": "Availability field is required"}), 400
+    
+    # Validate availability status
+    allowed_statuses = ['Available', 'Busy', 'On Leave', 'Not Available']
+    new_availability = data['availability']
+    
+    if new_availability not in allowed_statuses:
+        return jsonify({
+            "message": "Invalid availability status",
+            "allowed_values": allowed_statuses
+        }), 400
+    
+    try:
+        doctor.availability = new_availability
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Availability updated successfully!",
+            "doctor": {
+                "doctor_id": doctor.id,
+                "name": doctor.name,
+                "availability": doctor.availability,
+                "specialization": doctor.specialization,
+                "department_id": doctor.department_id
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error updating availability: {str(e)}"}), 500
