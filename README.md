@@ -14,6 +14,7 @@ A comprehensive Hospital Management System built for IITM MAD2 course using Pyth
   - Admin dashboard for managing users
   - Doctor and patient profile management
   - User role assignment
+  - Blacklist/ban functionality for deactivating accounts
 
 - **Doctor Management**
   - Add and manage doctors
@@ -79,6 +80,17 @@ hms-iitm-v2/
 
 ### Doctor Management
 - `POST /api/add/doctor` - Add new doctor (admin only)
+- `PUT/PATCH /api/update/doctor/<doctor_id>` - Update doctor details (admin only)
+- `DELETE/POST /api/remove/doctor` - Remove doctor and associated user (admin only)
+- `POST/PATCH /api/blacklist/doctor/<doctor_id>` - Blacklist/unblacklist doctor (admin only)
+
+### Patient Management
+- `PUT/PATCH /api/update/patient/<patient_id>` - Update patient details (self or admin)
+- `DELETE/POST /api/remove/patient` - Remove patient (admin only)
+- `POST/PATCH /api/blacklist/patient/<patient_id>` - Blacklist/unblacklist patient (admin only)
+
+### Blacklist Management
+- `GET /api/blacklist/list` - Get all blacklisted users (admin only)
 
 ### Dashboard
 - `GET /api/dashboard` - User dashboard (requires JWT)
@@ -144,6 +156,45 @@ On first run, an admin account is automatically created with credentials from yo
 - JWT tokens are required for protected routes
 - Role-based access control ensures proper authorization
 
+## Blacklist/Ban Feature
+
+The system includes a comprehensive blacklist feature that allows administrators to deactivate user accounts without permanently deleting them:
+
+### How It Works
+
+- **Soft Deactivation**: When a user is blacklisted, their `active` status is set to `False`
+- **Login Prevention**: Blacklisted users cannot log in and receive a clear error message
+- **Data Preservation**: All user data, appointments, and history are preserved
+- **Reversible**: Admins can reactivate accounts by toggling the blacklist status
+- **Flexible API**: Can toggle status or explicitly set active/inactive state
+
+### Usage Examples
+
+**Blacklist a doctor:**
+```bash
+POST /api/blacklist/doctor/123
+# Toggles the active status
+
+# Or explicitly set status:
+POST /api/blacklist/doctor/123
+{
+  "active": false
+}
+```
+
+**Reactivate a user:**
+```bash
+POST /api/blacklist/doctor/123
+{
+  "active": true
+}
+```
+
+**View all blacklisted users:**
+```bash
+GET /api/blacklist/list
+```
+
 ## Security Features
 
 - Password hashing with bcrypt
@@ -151,6 +202,7 @@ On first run, an admin account is automatically created with credentials from yo
 - Role-based authorization decorators
 - Protected API endpoints
 - SQL injection prevention through ORM
+- Account deactivation/blacklist system
 
 ## Future Enhancements
 

@@ -57,6 +57,10 @@ def login():
     if not user or not user.check_password(data['password']):
         return jsonify({"error": "Invalid credentials"}), 401
     
+    # Check if user account is active
+    if not user.active:
+        return jsonify({"error": "Account has been deactivated. Please contact administrator."}), 403
+    
     # Create JWT tokens
     access_token = create_access_token(identity=user)
     
@@ -67,7 +71,8 @@ def login():
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "role": user.role
+            "role": user.role,
+            "active": user.active
         }
     }), 200
 
