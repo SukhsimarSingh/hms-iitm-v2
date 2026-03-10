@@ -1,9 +1,9 @@
 from flask import request, jsonify, Blueprint
 from flask_jwt_extended import jwt_required, current_user
 
-from app.models import User, Doctor, Patient, Appointment
-from app.database import db
-from app.security import roles_required
+from backend.models import User, Doctor, Patient, Appointment
+from backend.database import db
+from backend.security import roles_required
 
 views = Blueprint('views', __name__)
 

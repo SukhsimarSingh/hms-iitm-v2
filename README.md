@@ -35,27 +35,95 @@ A comprehensive Hospital Management System built for IITM MAD2 course using Pyth
 
 ## Tech Stack
 
-- **Backend**: Flask (Python)
+### Backend
+- **Framework**: Flask (Python)
 - **Database**: SQLAlchemy ORM with SQLite/PostgreSQL
 - **Authentication**: Flask-JWT-Extended
 - **Password Hashing**: bcrypt
 - **Database Migrations**: Flask-Migrate
 - **Environment Management**: python-dotenv
 
+### Frontend
+- **Framework**: Vue.js 3
+- **Build Tool**: Vite
+- **Package Manager**: npm
+- **Styling**: CSS / Vue SFC (Single File Components)
+
+### DevOps & Tools
+- **Version Control**: Git
+- **Database**: SQLite (dev) / PostgreSQL (prod)
+- **API Testing**: Postman
+- **Documentation**: Markdown
+
 ## Project Structure
 
 ```
 hms-iitm-v2/
-├── app/
+├── backend/                 # Python Flask Backend
 │   ├── __init__.py          # App factory and initialization
+│   ├── main.py              # Application entry point
 │   ├── auth.py              # Authentication routes
-│   ├── routes.py            # Main application routes
-│   ├── models.py            # Database models
-│   ├── database.py          # Database configuration
+│   ├── routes.py            # Main application routes (API endpoints)
+│   ├── models.py            # Database models (User, Doctor, Patient, etc.)
+│   ├── database.py          # Database configuration and connection
 │   ├── security.py          # JWT and role-based security
-│   └── config.py            # Application configuration
-├── main.py                  # Application entry point
-└── README.md
+│   ├── config.py            # Application configuration
+│   └── __pycache__/         # Python cache (ignored in git)
+├── frontend/                # Vue.js Frontend
+│   ├── src/
+│   │   ├── components/      # Vue components
+│   │   ├── App.vue          # Main app component
+│   │   ├── main.js          # Vue app entry point
+│   │   ├── style.css        # Global styles
+│   │   └── assets/          # Static assets
+│   ├── public/              # Public static files
+│   ├── index.html           # HTML entry point
+│   ├── vite.config.js       # Vite build configuration
+│   ├── package.json         # Node dependencies
+│   ├── package-lock.json    # Locked dependency versions
+│   ├── .gitignore           # Frontend git ignore
+│   └── node_modules/        # Dependencies (ignored in git)
+├── templates/               # Flask HTML templates
+│   ├── base.html            # Base template
+│   ├── home.html            # Home page
+│   ├── login.html           # Login page
+│   └── dashboard.html       # Dashboard page
+├── migrations/              # Database migrations (Flask-Migrate)
+├── .env                     # Environment variables (IGNORED in git)
+├── .env.example             # Environment template
+├── .gitignore               # Git ignore rules
+├── requirements.txt         # Python dependencies
+├── README.md                # Project documentation
+├── GIT_CHECKIN_GUIDE.md     # Git check-in instructions
+├── MIGRATION_GUIDE.md       # Database migration guide
+├── POSTMAN_TESTING_GUIDE.md # API testing guide
+└── CORE_REQUIREMENTS.md     # Core project requirements
+```
+
+## Running the Application
+
+### Backend (Flask API)
+```bash
+cd backend
+python main.py
+# API available at http://localhost:5000
+```
+
+### Frontend (Vue.js)
+```bash
+cd frontend
+npm install      # Install dependencies (first time)
+npm run dev      # Start dev server
+# Frontend available at http://localhost:5173
+```
+
+### Both Backend and Frontend (from root)
+```bash
+# Terminal 1 - Backend
+python backend/main.py
+
+# Terminal 2 - Frontend
+cd frontend && npm run dev
 ```
 
 ## Database Models
@@ -103,6 +171,8 @@ hms-iitm-v2/
 
 ## Setup Instructions
 
+### Backend Setup (Flask API)
+
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
@@ -115,9 +185,9 @@ hms-iitm-v2/
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies**
+3. **Install Python dependencies**
    ```bash
-   pip install flask flask-sqlalchemy flask-migrate flask-jwt-extended bcrypt python-dotenv
+   pip install -r requirements.txt
    ```
 
 4. **Set up environment variables**
@@ -145,12 +215,58 @@ hms-iitm-v2/
    flask db upgrade
    ```
 
-6. **Run the application**
+6. **Run the backend server**
    ```bash
+   cd backend
    python main.py
    ```
+   Backend API available at `http://localhost:5000`
 
-   The application will be available at `http://localhost:5000`
+### Frontend Setup (Vue.js)
+
+1. **Navigate to frontend directory**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install Node dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables** (optional)
+   Create a `.env` file in the `frontend/` directory:
+   ```env
+   VITE_API_BASE_URL=http://localhost:5000
+   VITE_API_TIMEOUT=30000
+   ```
+
+4. **Run the frontend dev server**
+   ```bash
+   npm run dev
+   ```
+   Frontend available at `http://localhost:5173`
+
+5. **Build for production**
+   ```bash
+   npm run build
+   ```
+
+### Running Both Backend and Frontend
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+python main.py
+# Runs on http://localhost:5000
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm run dev
+# Runs on http://localhost:5173
+```
 
 ## Default Admin Account
 
@@ -454,6 +570,127 @@ GET /api/blacklist/list
 - JWT token-based authentication
 - Role-based authorization decorators
 - Protected API endpoints
+- User account deactivation/blacklisting
+
+## Important Notes
+
+### Project Structure Changes
+The project has been restructured to support a full-stack application:
+- `app/` folder renamed to `backend/` for better clarity
+- `frontend/` folder created for Vue.js application
+- `templates/` folder for Flask HTML templates (if using server-side rendering)
+- All backend imports now use `backend.*` module prefix
+
+### Environment Variables
+Create a `.env` file in the root directory. See `.env.example` for reference:
+```bash
+SQLALCHEMY_DATABASE_URI=sqlite:///hospital.db
+JWT_SECRET_KEY=your-secret-key-here
+SECRET_KEY=your-flask-secret-key
+SECURITY_PASSWORD_SALT=your-password-salt
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@hospital.com
+ADMIN_PASSWORD=admin123
+```
+
+### Database Migrations
+When you modify models, always create and apply migrations:
+```bash
+# Create migration
+flask db migrate -m "Description of changes"
+
+# Apply migration
+flask db upgrade
+
+# Rollback if needed
+flask db downgrade
+```
+
+### API Base URL
+- **Development**: `http://localhost:5000`
+- **Production**: Configure according to your deployment setup
+
+### CORS (if needed)
+When frontend and backend run on different ports, ensure CORS is properly configured in Flask. Add to `backend/__init__.py`:
+```python
+from flask_cors import CORS
+CORS(app)
+```
+
+## Troubleshooting
+
+### Port already in use
+If port 5000 is already in use, change it in `backend/main.py`:
+```python
+app.run(debug=True, host='0.0.0.0', port=5001)
+```
+
+### Import errors
+Ensure you're running commands from the correct directory and have activated the virtual environment.
+
+### Database errors
+Delete the old `hospital.db` file and re-run migrations if you encounter database-related errors.
+
+## Documentation
+
+- **[README.md](README.md)** - This file, main project documentation
+- **[STRUCTURE_CHANGES.md](STRUCTURE_CHANGES.md)** - Details about the new project structure
+- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Database migration and schema management
+- **[POSTMAN_TESTING_GUIDE.md](POSTMAN_TESTING_GUIDE.md)** - API endpoint testing guide
+- **[GIT_CHECKIN_GUIDE.md](GIT_CHECKIN_GUIDE.md)** - Git workflow and check-in practices
+- **[CORE_REQUIREMENTS.md](CORE_REQUIREMENTS.md)** - Project milestones and requirements
+- **[.env.example](.env.example)** - Environment variables template
+
+## Quick Start
+
+### For Developers
+
+**First time setup:**
+```bash
+# Backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+
+# Frontend
+cd frontend
+npm install
+cd ..
+
+# Create .env file from template
+cp .env.example .env
+```
+
+**Start development servers:**
+```bash
+# Terminal 1 - Backend
+cd backend
+python main.py
+
+# Terminal 2 - Frontend
+cd frontend
+npm run dev
+```
+
+Then open your browser:
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:5000`
+
+### Testing API Endpoints
+
+See **[POSTMAN_TESTING_GUIDE.md](POSTMAN_TESTING_GUIDE.md)** for detailed instructions on testing all endpoints with Postman.
+
+Quick test:
+```bash
+# Login to get JWT token
+curl -X POST http://localhost:5000/auth/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
+
+# Use token in subsequent requests
+curl -X GET http://localhost:5000/api/get/doctor \
+  -H "Authorization: Bearer <your-token-here>"
+```
 - SQL injection prevention through ORM
 - Account deactivation/blacklist system
 

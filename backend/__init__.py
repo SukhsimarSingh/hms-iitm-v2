@@ -1,15 +1,13 @@
 from flask import Flask
 from flask_migrate import Migrate
+from datetime import datetime
+from dotenv import load_dotenv
+import os
 
 from .database import db
 from .models import User
 from .config import Config
 from .security import jwt
-
-from datetime import datetime
-
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -19,7 +17,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 # Creating and Configuring app
 def create_app():
-    app = Flask(__name__, template_folder='templates')
+    app = Flask(__name__, template_folder='../templates')
     app.config.from_object(Config)
 
     from .auth import auth
@@ -53,5 +51,3 @@ def create_app():
                 app.logger.info('%s Error adding admin', e)
 
     return app
-
-app = create_app()

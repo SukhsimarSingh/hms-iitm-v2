@@ -1,6 +1,6 @@
 # from werkzeug.security import generate_password_hash, check_password_hash
 import bcrypt
-from app.database import db
+from backend.database import db
 from sqlalchemy.sql import func
 
 # DB MODELS
