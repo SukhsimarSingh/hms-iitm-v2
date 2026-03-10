@@ -773,3 +773,313 @@ def update_availability():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Error updating availability: {str(e)}"}), 500
+
+
+# PATIENT DASHBOARD
+@views.route('/api/patient/dashboard', methods=['GET'])
+@roles_required('patient')
+def patient_dashboard():
+    """Get comprehensive patient dashboard data"""
+    
+    try:
+        # Get patient record (if exists)
+        patient_record = Patient.query.filter_by(user_id=current_user.id).first()
+        
+        # Get patient's appointments
+        appointments_list = []
+        
+        if patient_record:
+            appointments = Appointment.query.filter_by(
+                patient_id=patient_record.id
+            ).all()
+            
+            for appointment in appointments:
+                # Get doctor details
+                doctor = Doctor.query.get(appointment.doctor_id)
+                doctor_user = User.query.get(doctor.user_id) if doctor else None
+                
+                appointment_info = {
+                    "id": appointment.id,
+                    "date": appointment.date.isoformat() if appointment.date else None,
+                    "time": appointment.time.isoformat() if appointment.time else None,
+                    "status": appointment.status,
+                    "doctor": {
+                        "id": doctor.id if doctor else None,
+                        "name": doctor.name if doctor else "N/A",
+                        "specialization": doctor.specialization if doctor else None,
+                        "department": doctor.department if doctor else None,
+                        "experience": doctor.experience if doctor else None,
+                        "username": doctor_user.username if doctor_user else None,
+                        "email": doctor_user.email if doctor_user else None
+                    }
+                }
+                
+                # Add treatment info if exists
+                if appointment.treatment:
+                    appointment_info["treatment"] = {
+                        "id": appointment.treatment.id,
+                        "diagnosis": appointment.treatment.diagnosis,
+                        "prescription": appointment.treatment.prescription,
+                        "notes": appointment.treatment.notes
+                    }
+                    
+                    # Add medicines if exist
+                    if appointment.treatment.medicine:
+                        medicines = []
+                        for medicine in appointment.treatment.medicine:
+                            medicines.append({
+                                "id": medicine.id,
+                                "name": medicine.name,
+                                "description": medicine.description
+                            })
+                        appointment_info["treatment"]["medicines"] = medicines
+                
+                appointments_list.append(appointment_info)
+        
+        # Get all available departments (for booking appointments)
+        all_doctors = Doctor.query.all()
+        departments = list(set([d.department for d in all_doctors if d.department]))
+        
+        # Get available doctors by department
+        doctors_by_department = {}
+        for dept in departments:
+            dept_doctors = Doctor.query.filter_by(department=dept).all()
+            doctors_by_department[dept] = []
+            
+            for doctor in dept_doctors:
+                doctor_user = User.query.get(doctor.user_id)
+                if doctor_user and doctor_user.active:
+                    doctors_by_department[dept].append({
+                        "doctor_id": doctor.id,
+                        "name": doctor.name,
+                        "specialization": doctor.specialization,
+                        "experience": doctor.experience,
+                        "availability": doctor.availability
+                    })
+        
+        # Statistics
+        stats = {
+            "total_appointments": len(appointments_list),
+            "upcoming_appointments": len([a for a in appointments_list if a['status'] == 'pending']),
+            "completed_appointments": len([a for a in appointments_list if a['status'] == 'completed']),
+            "cancelled_appointments": len([a for a in appointments_list if a['status'] == 'cancelled'])
+        }
+        
+        return jsonify({
+            "message": "Patient dashboard data retrieved successfully",
+            "patient": {
+                "user_id": current_user.id,
+                "patient_id": patient_record.id if patient_record else None,
+                "username": current_user.username,
+                "email": current_user.email,
+                "first_name": current_user.first_name,
+                "last_name": current_user.last_name,
+                "name": patient_record.name if patient_record else f"{current_user.first_name} {current_user.last_name}",
+                "age": patient_record.age if patient_record else None,
+                "contact": patient_record.contact if patient_record else None
+            },
+            "statistics": stats,
+            "upcoming_appointments": appointments_list,
+            "departments": departments,
+            "doctors_by_department": doctors_by_department
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"message": f"Error retrieving patient dashboard: {str(e)}"}), 500
+
+
+# CREATE/BOOK APPOINTMENT
+@views.route('/api/appointment/create', methods=['POST'])
+@jwt_required()
+def create_appointment():
+    """Create a new appointment - patients or admins can create"""
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
+    # Required fields
+    patient_id = data.get('patient_id')
+    doctor_id = data.get('doctor_id')
+    date = data.get('date')
+    time = data.get('time')
+    
+    if not all([patient_id, doctor_id, date, time]):
+        return jsonify({"message": "Missing required fields (patient_id, doctor_id, date, time)"}), 400
+    
+    # Verify patient exists
+    patient = Patient.query.get(patient_id)
+    if not patient:
+        return jsonify({"message": "Patient not found"}), 404
+    
+    # Verify doctor exists and is active
+    doctor = Doctor.query.get(doctor_id)
+    if not doctor:
+        return jsonify({"message": "Doctor not found"}), 404
+    
+    doctor_user = User.query.get(doctor.user_id)
+    if not doctor_user or not doctor_user.active:
+        return jsonify({"message": "Doctor is not available"}), 400
+    
+    # Check authorization - patients can only book for themselves
+    if current_user.role == 'patient':
+        if patient.user_id != current_user.id:
+            return jsonify({"message": "You can only book appointments for yourself"}), 403
+    
+    try:
+        from datetime import datetime as dt
+        
+        # Parse date and time
+        appointment_date = dt.fromisoformat(date).date() if isinstance(date, str) else date
+        appointment_time = dt.fromisoformat(time).time() if isinstance(time, str) else time
+        
+        # Create appointment
+        appointment = Appointment(
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            date=appointment_date,
+            time=appointment_time,
+            status='pending'
+        )
+        
+        db.session.add(appointment)
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Appointment created successfully!",
+            "appointment": {
+                "id": appointment.id,
+                "patient_id": patient_id,
+                "doctor_id": doctor_id,
+                "date": appointment.date.isoformat(),
+                "time": appointment.time.isoformat(),
+                "status": appointment.status
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error creating appointment: {str(e)}"}), 500
+
+
+# UPDATE APPOINTMENT
+@views.route('/api/appointment/update/<int:appointment_id>', methods=['PUT', 'PATCH'])
+@jwt_required()
+def update_appointment(appointment_id):
+    """Update appointment - change date, time, or status"""
+    
+    appointment = Appointment.query.get(appointment_id)
+    
+    if not appointment:
+        return jsonify({"message": "Appointment not found"}), 404
+    
+    # Check authorization
+    patient = Patient.query.get(appointment.patient_id)
+    if current_user.role == 'patient' and patient.user_id != current_user.id:
+        return jsonify({"message": "You can only update your own appointments"}), 403
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"message": "No data provided"}), 400
+    
+    try:
+        from datetime import datetime as dt
+        
+        # Update fields
+        if 'date' in data:
+            appointment.date = dt.fromisoformat(data['date']).date() if isinstance(data['date'], str) else data['date']
+        
+        if 'time' in data:
+            appointment.time = dt.fromisoformat(data['time']).time() if isinstance(data['time'], str) else data['time']
+        
+        if 'status' in data:
+            # Only doctors and admins can change status
+            if current_user.role in ['doctor', 'admin']:
+                appointment.status = data['status']
+            else:
+                return jsonify({"message": "Only doctors and admins can change appointment status"}), 403
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Appointment updated successfully!",
+            "appointment": {
+                "id": appointment.id,
+                "date": appointment.date.isoformat(),
+                "time": appointment.time.isoformat(),
+                "status": appointment.status
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error updating appointment: {str(e)}"}), 500
+
+
+# CANCEL APPOINTMENT
+@views.route('/api/appointment/cancel/<int:appointment_id>', methods=['POST', 'PATCH'])
+@jwt_required()
+def cancel_appointment(appointment_id):
+    """Cancel an appointment"""
+    
+    appointment = Appointment.query.get(appointment_id)
+    
+    if not appointment:
+        return jsonify({"message": "Appointment not found"}), 404
+    
+    # Check authorization
+    patient = Patient.query.get(appointment.patient_id)
+    doctor = Doctor.query.get(appointment.doctor_id)
+    
+    # Patients can cancel their own, doctors can cancel theirs, admins can cancel any
+    authorized = False
+    if current_user.role == 'admin':
+        authorized = True
+    elif current_user.role == 'patient' and patient.user_id == current_user.id:
+        authorized = True
+    elif current_user.role == 'doctor' and doctor.user_id == current_user.id:
+        authorized = True
+    
+    if not authorized:
+        return jsonify({"message": "You are not authorized to cancel this appointment"}), 403
+    
+    try:
+        appointment.status = 'cancelled'
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Appointment cancelled successfully!",
+            "appointment_id": appointment_id,
+            "status": appointment.status
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error cancelling appointment: {str(e)}"}), 500
+
+
+# DELETE APPOINTMENT
+@views.route('/api/appointment/delete/<int:appointment_id>', methods=['DELETE'])
+@roles_required('admin')
+def delete_appointment(appointment_id):
+    """Permanently delete an appointment (admin only)"""
+    
+    appointment = Appointment.query.get(appointment_id)
+    
+    if not appointment:
+        return jsonify({"message": "Appointment not found"}), 404
+    
+    try:
+        db.session.delete(appointment)
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Appointment deleted successfully!",
+            "appointment_id": appointment_id
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error deleting appointment: {str(e)}"}), 500

@@ -60,12 +60,13 @@ hms-iitm-v2/
 
 ## Database Models
 
-- **User**: Core user model with authentication
-- **Doctor**: Doctor-specific information and relationships
-- **Patient**: Patient information
-- **Appointment**: Appointment scheduling
-- **Treatment**: Treatment records and prescriptions
-- **Medicine**: Medicine inventory and prescriptions
+- **User**: Core user model with authentication (username, email, password, role, active status)
+- **Doctor**: Doctor-specific information (name, specialization, experience, availability, department)
+- **Patient**: Patient information (name, age, contact, search_keyword)
+- **Appointment**: Appointment scheduling (patient_id, doctor_id, date, time, status)
+- **Treatment**: Treatment records (appointment_id, diagnosis, prescription, notes)
+- **Medicine**: Medicine inventory (name, description, treatment_id)
+- **Department**: Hospital departments (name, description)
 
 ## API Endpoints
 
@@ -81,11 +82,13 @@ hms-iitm-v2/
 ### Doctor Management
 - `POST /api/add/doctor` - Add new doctor (admin only)
 - `PUT/PATCH /api/update/doctor/<doctor_id>` - Update doctor details (admin only)
+- `PUT/PATCH /api/doctor/availability` - Update doctor availability status (doctor only)
 - `DELETE/POST /api/remove/doctor` - Remove doctor and associated user (admin only)
 - `POST/PATCH /api/blacklist/doctor/<doctor_id>` - Blacklist/unblacklist doctor (admin only)
 
 ### Patient Management
-- `PUT/PATCH /api/update/patient/<patient_id>` - Update patient details (self or admin)
+- `PUT/PATCH /api/update/patient/<patient_id>` - Update patient user account (self or admin)
+- `PUT/PATCH /api/patient/record/update/<patient_id>` - Update patient record: name, age, contact (self, doctor, or admin)
 - `DELETE/POST /api/remove/patient` - Remove patient (admin only)
 - `POST/PATCH /api/blacklist/patient/<patient_id>` - Blacklist/unblacklist patient (admin only)
 
@@ -93,9 +96,78 @@ hms-iitm-v2/
 - `GET /api/blacklist/list` - Get all blacklisted users (admin only)
 
 ### Dashboard
-- `GET /api/dashboard` - User dashboard (requires JWT)
+- `GET /api/dashboard` - General dashboard (redirects to role-specific dashboard)
 - `GET /api/admin/dashboard` - Comprehensive admin dashboard with all data (admin only)
-- `GET /admin` - Admin page (legacy route)
+- `GET /api/doctor/dashboard` - Doctor dashboard with appointments and patient history (doctor only)
+- `GET /api/patient/dashboard` - Patient dashboard with appointments and available doctors (patient only)
+
+### Legacy Routes
+- `GET /` or `/home` - Home page
+- `GET /admin` - Admin page (use `/api/admin/dashboard` instead)
+
+---
+
+## 📊 Complete API Summary
+
+**Total API Endpoints**: 36
+
+### By Category:
+- 🔐 **Authentication**: 3 endpoints
+- 👥 **User Management**: 2 endpoints
+- 👨‍⚕️ **Doctor Management**: 5 endpoints
+- 🏥 **Patient Management**: 4 endpoints
+- 🚫 **Blacklist Management**: 1 endpoint
+- 🔍 **Search**: 3 endpoints
+- 📅 **Appointments**: 4 endpoints
+- 💊 **Treatments**: 3 endpoints
+- 📋 **Patient History**: 2 endpoints
+- 🏢 **Departments**: 5 endpoints
+- 📊 **Dashboards**: 4 endpoints
+
+### By Authorization Level:
+- **Public** (No Auth): 2 endpoints (register, login)
+- **Any Authenticated User**: 8 endpoints
+- **Admin Only**: 14 endpoints
+- **Doctor Only**: 5 endpoints
+- **Patient Only**: 2 endpoints
+- **Mixed Authorization**: 5 endpoints (self or admin, etc.)
+
+---
+
+## 📖 Quick API Reference
+
+### Key Endpoints by User Role:
+
+#### **Admin Can Access:**
+- All user management endpoints
+- Add/update/remove doctors
+- Blacklist management
+- Admin dashboard with full system overview
+- All search functionality
+- Department management
+- View all patient histories
+- Delete appointments
+
+#### **Doctor Can Access:**
+- View their dashboard with appointments
+- Update their availability
+- Add/update treatments
+- Add medicines to treatments
+- View patient medical histories
+- Update patient records (name, age, contact)
+- Update appointment status
+- Cancel appointments
+
+#### **Patient Can Access:**
+- Register and update own profile
+- View their dashboard
+- Book/reschedule/cancel appointments
+- View own medical history
+- Update own patient record
+- Search for doctors
+- View departments and available doctors
+
+---
 
 ## Setup Instructions
 
@@ -129,10 +201,15 @@ hms-iitm-v2/
    ADMIN_PASSWORD=admin123
    ```
 
-5. **Initialize the database**
+5. **Initialize the database with Flask-Migrate**
    ```bash
+   # Initialize migration repository (first time only)
    flask db init
+   
+   # Create initial migration
    flask db migrate -m "Initial migration"
+   
+   # Apply migration to create tables
    flask db upgrade
    ```
 
@@ -241,6 +318,164 @@ The admin dashboard provides a comprehensive view of all system data in a single
 - **Appointment Overview**: All appointments with patient and doctor info
 - **Active Status**: Shows which users are active or blacklisted
 - **Ready for UI**: Structured data perfect for frontend rendering
+
+## Doctor Dashboard
+
+The doctor dashboard provides doctors with their appointments, patient history, and schedule management.
+
+### Endpoint: `GET /api/doctor/dashboard`
+
+**Authorization**: Doctor only
+
+**Response Structure**:
+```json
+{
+  "message": "Doctor dashboard data retrieved successfully",
+  "doctor": {
+    "user_id": 2,
+    "doctor_id": 1,
+    "username": "dr.abcde",
+    "email": "abcde@hospital.com",
+    "name": "Dr. Abcde",
+    "first_name": "Dr.",
+    "last_name": "Abcde",
+    "specialization": "Cardiology",
+    "department": "Heart Center",
+    "experience": 10.5,
+    "availability": "Available"
+  },
+  "statistics": {
+    "total_appointments": 25,
+    "upcoming_appointments": 5,
+    "completed_appointments": 20,
+    "total_patients": 15
+  },
+  "upcoming_appointments": [
+    {
+      "id": 1,
+      "date": "2026-03-15",
+      "time": "10:00:00",
+      "status": "pending",
+      "patient": {
+        "id": 1,
+        "name": "Mr. Abcde",
+        "age": 45,
+        "contact": "1234567890",
+        "username": "mr.abcde",
+        "email": "patient@email.com"
+      },
+      "treatment": {
+        "id": 1,
+        "diagnosis": "Hypertension",
+        "prescription": "Medicine XYZ",
+        "notes": "Follow-up in 2 weeks"
+      }
+    }
+  ],
+  "patient_history": [
+    {
+      "patient_id": 1,
+      "name": "Mr. Abcde",
+      "age": 45,
+      "contact": "1234567890",
+      "username": "mr.abcde",
+      "email": "patient@email.com",
+      "total_appointments": 3,
+      "last_visit": "2026-03-10"
+    }
+  ]
+}
+```
+
+### Features:
+- **Doctor Profile**: Complete doctor information
+- **Statistics**: Quick metrics for appointments and patients
+- **Upcoming Appointments**: All scheduled appointments with patient details
+- **Patient History**: All patients seen with visit counts and last visit date
+- **Treatment Records**: Access to diagnosis, prescriptions, and notes
+
+## Patient Dashboard
+
+The patient dashboard provides patients with their appointments, medical history, and available doctors.
+
+### Endpoint: `GET /api/patient/dashboard`
+
+**Authorization**: Patient only
+
+**Response Structure**:
+```json
+{
+  "message": "Patient dashboard data retrieved successfully",
+  "patient": {
+    "user_id": 3,
+    "patient_id": 1,
+    "username": "mr.abcde",
+    "email": "patient@email.com",
+    "first_name": "Mr.",
+    "last_name": "Abcde",
+    "name": "Mr. Abcde",
+    "age": 45,
+    "contact": "1234567890"
+  },
+  "statistics": {
+    "total_appointments": 10,
+    "upcoming_appointments": 2,
+    "completed_appointments": 7,
+    "cancelled_appointments": 1
+  },
+  "upcoming_appointments": [
+    {
+      "id": 1,
+      "date": "2026-03-15",
+      "time": "10:00:00",
+      "status": "pending",
+      "doctor": {
+        "id": 1,
+        "name": "Dr. Parst",
+        "specialization": "Cardiology",
+        "department": "Heart Center",
+        "experience": 10.5,
+        "username": "dr.parst",
+        "email": "parst@hospital.com"
+      },
+      "treatment": {
+        "id": 1,
+        "diagnosis": "Hypertension",
+        "prescription": "Medicine XYZ",
+        "notes": "Follow-up in 2 weeks",
+        "medicines": [
+          {
+            "id": 1,
+            "name": "Medicine XYZ",
+            "description": "Take twice daily"
+          }
+        ]
+      }
+    }
+  ],
+  "departments": ["Cardiology", "Neurology", "Orthopedics"],
+  "doctors_by_department": {
+    "Cardiology": [
+      {
+        "doctor_id": 1,
+        "name": "Dr. Parst",
+        "specialization": "Cardiology",
+        "experience": 10.5,
+        "availability": "Available"
+      }
+    ]
+  }
+}
+```
+
+### Features:
+- **Patient Profile**: Complete patient information
+- **Statistics**: Appointment counts by status
+- **Upcoming Appointments**: All scheduled appointments with doctor and treatment details
+- **Medical History**: Past treatments, diagnoses, and prescriptions
+- **Medicine List**: Detailed medicine information for each treatment
+- **Available Doctors**: List of doctors by department for booking appointments
+- **Department List**: All available departments in the hospital
 
 ## Blacklist/Ban Feature
 
