@@ -30,7 +30,8 @@ def get_users(role):
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "role": user.role,
-                "email": user.email
+                "email": user.email,
+                "active": user.active
             }
             
             # If it's a doctor, include doctor-specific details
@@ -71,7 +72,8 @@ def get_details(role, username):
                     "email": user.email,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
-                    "role": user.role
+                    "role": user.role,
+                    "active": user.active
                 }
             })
         
@@ -82,7 +84,8 @@ def get_details(role, username):
                     "email": user.email,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
-                    "role": user.role
+                    "role": user.role,
+                    "active": user.active
                 }
             })
         
