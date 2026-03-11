@@ -87,83 +87,91 @@ const clearError = (field) => {
 </script>
 
 <template>
-    <div class="container">
-        <br><br>
-        <h3>Login</h3>
-        <!-- Success Message -->
-        <div v-if="successMessage" class="alert alert-success alert-dismissible fade show" role="alert">
-            {{ successMessage }}
-            <button type="button" class="btn-close" @click="successMessage = ''" aria-label="Close">
-            </button>
-        </div>
+    <div class="d-flex justify-content-center align-items-center"
+        style="min-height: 100vh; margin-top: 20px; margin-bottom: 20px;">
+        <div style="width: 100%; max-width: 800px; padding: 0 15px;">
+            <div class="card">
+                <div class="card-body p-5">
+                    <h2 class="mb-2">Login</h2>
+                    <p class="mb-4 text-muted">Login to your account</p>
 
-        <!-- Error Message -->
-        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
-            {{ errorMessage }}
-            <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close">
-            </button>
-        </div>
+                    <!-- Success Message -->
+                    <div v-if="successMessage" class="alert alert-success alert-dismissible fade show" role="alert">
+                        {{ successMessage }}
+                        <button type="button" class="btn-close" @click="successMessage = ''" aria-label="Close">
+                        </button>
+                    </div>
 
-        <!-- Login Form -->
-        <form @submit="handleLogin" novalidate>
-            <!-- Username Field -->
-            <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" class="form-control" :class="{ 'is-invalid': formErrors.username }" id="username"
-                    name="username" v-model="formData.username" placeholder="Enter your username" required
-                    @input="clearError('username')" :disabled="isLoading">
-                <div v-if="formErrors.username" class="invalid-feedback" style="display: block;">
-                    {{ formErrors.username }}
+                    <!-- Error Message -->
+                    <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
+                        {{ errorMessage }}
+                        <button type="button" class="btn-close" @click="errorMessage = ''" aria-label="Close">
+                        </button>
+                    </div>
+
+                    <!-- Login Form -->
+                    <form @submit="handleLogin" novalidate>
+                        <!-- Username Field -->
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" :class="{ 'is-invalid': formErrors.username }"
+                                id="username" name="username" v-model="formData.username"
+                                placeholder="Enter your username" required @input="clearError('username')"
+                                :disabled="isLoading">
+                            <div v-if="formErrors.username" class="invalid-feedback" style="display: block;">
+                                {{ formErrors.username }}
+                            </div>
+                        </div>
+
+                        <!-- Password Field -->
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" :class="{ 'is-invalid': formErrors.password }"
+                                id="password" name="password" v-model="formData.password"
+                                placeholder="Enter your password" required @input="clearError('password')"
+                                :disabled="isLoading">
+                            <div v-if="formErrors.password" class="invalid-feedback" style="display: block;">
+                                {{ formErrors.password }}
+                            </div>
+                        </div>
+
+                        <!-- Remember Me Checkbox -->
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe"
+                                :disabled="isLoading">
+                            <label class="form-check-label" for="rememberMe">
+                                Remember me
+                            </label>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="isLoading">
+                            <span v-if="isLoading">
+                                <span class="spinner-border spinner-border-sm me-2" role="status"
+                                    aria-hidden="true"></span>
+                                Signing in...
+                            </span>
+                            <span v-else>Sign In</span>
+                        </button>
+                    </form>
+
+                    <!-- Registration Link -->
+                    <div class="text-center">
+                        <p class="mb-0">
+                            Don't have an account?
+                            <a href="/register" class="text-decoration-none">Register here</a>
+                        </p>
+                    </div>
+
+                    <!-- Forgot Password Link -->
+                    <div class="text-center">
+                        <p class="mb-0">
+                            <a href="/forgot-password" class="text-decoration-none text-muted">Forgot your password?</a>
+                        </p>
+                    </div>
                 </div>
             </div>
-
-            <!-- Password Field -->
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" :class="{ 'is-invalid': formErrors.password }" id="password"
-                    name="password" v-model="formData.password" placeholder="Enter your password" required
-                    @input="clearError('password')" :disabled="isLoading">
-                <div v-if="formErrors.password" class="invalid-feedback" style="display: block;">
-                    {{ formErrors.password }}
-                </div>
-            </div>
-
-            <!-- Remember Me Checkbox -->
-            <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe" :disabled="isLoading">
-                <label class="form-check-label" for="rememberMe">
-                    Remember me
-                </label>
-            </div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="isLoading">
-                <span v-if="isLoading">
-                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Signing in...
-                </span>
-                <span v-else>Sign In</span>
-            </button>
-        </form>
-
-        <!-- Registration Link -->
-        <div class="text-center">
-            <p class="mb-0">
-                Don't have an account?
-                <a href="/register" class="text-decoration-none">Register here</a>
-            </p>
         </div>
-
-        <!-- Forgot Password Link -->
-        <div class="text-center">
-            <p class="mb-0">
-                <a href="/forgot-password" class="text-decoration-none text-muted">Forgot your password?</a>
-            </p>
-        </div>
-    </div>
-    <!-- Footer Text -->
-    <div class="text-center mt-4">
-        <p class="text-muted small">&copy; 2024 Hospital Management System. All rights reserved.</p>
     </div>
 </template>
 
