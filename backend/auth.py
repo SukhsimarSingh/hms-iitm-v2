@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 
-from backend.models import User
+from backend.models import User, Patient
 from backend.database import db
 
 auth = Blueprint('auth', __name__)
@@ -36,6 +36,16 @@ def register():
     user.set_password(data['password'])
     
     db.session.add(user)
+    db.session.commit()
+    
+    # Create corresponding Patient record
+    patient = Patient(
+        user_id=user.id,
+        name=f"{first_name} {last_name}".strip() or data['username'],
+        age=data.get('age', None),
+        contact=data.get('contact', '')
+    )
+    db.session.add(patient)
     db.session.commit()
     
     return jsonify({

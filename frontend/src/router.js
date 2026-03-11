@@ -54,6 +54,24 @@ const routes = [
         component: AdminPage,
         meta: { requiresAuth: true, requiresAdmin: true }
     },
+    {
+        path: '/profile',
+        name: 'Profile',
+        component: () => import('./components/ProfilePage.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/history',
+        name: 'History',
+        component: () => import('./components/HistoryPage.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/book-appointment',
+        name: 'BookAppointment',
+        component: () => import('./components/BookAppointmentPage.vue'),
+        meta: { requiresAuth: true, requiresRole: 'patient' }
+    },
 ]
 
 const router = createRouter({

@@ -4,23 +4,26 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const user = ref(null)
+const token = ref(null)
 const dashboard = ref(null)
 const isLoading = ref(true)
 const errorMessage = ref('')
+const selectedDepartment = ref(null)
 
 const userFirstName = computed(() => user.value?.first_name || 'Patient')
 
 onMounted(async () => {
   // Get user from localStorage
   const userData = localStorage.getItem('user')
-  const token = localStorage.getItem('token')
+  const tokenData = localStorage.getItem('token')
 
-  if (!userData || !token) {
+  if (!userData || !tokenData) {
     router.push('/login')
     return
   }
 
   user.value = JSON.parse(userData)
+  token.value = tokenData
 
   // Verify user is a patient
   if (user.value.role !== 'patient') {
@@ -33,7 +36,7 @@ onMounted(async () => {
     const response = await fetch('http://localhost:5000/api/patient/dashboard', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token.value}`,
         'Content-Type': 'application/json',
       },
     })
@@ -52,14 +55,52 @@ onMounted(async () => {
     isLoading.value = false
   }
 })
+
+const viewDepartment = (department) => {
+  selectedDepartment.value = department
+}
+
+const closeDepartmentView = () => {
+  selectedDepartment.value = null
+}
+
+const cancelAppointment = async (appointment) => {
+  if (!confirm(`Are you sure you want to cancel this appointment on ${new Date(appointment.date).toLocaleDateString()}?`)) {
+    return
+  }
+
+  try {
+    const response = await fetch(`http://localhost:5000/api/appointment/cancel/${appointment.id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.value}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      // Remove the cancelled appointment from the list
+      dashboard.value.upcoming_appointments = dashboard.value.upcoming_appointments.filter(apt => apt.id !== appointment.id)
+      alert('Appointment cancelled successfully')
+    } else {
+      alert(data.message || 'Failed to cancel appointment')
+    }
+  } catch (error) {
+    console.error('Error cancelling appointment:', error)
+    alert('An error occurred while cancelling the appointment')
+  }
+}
 </script>
 
 <template>
-  <div class="container mt-5" v-if="user">
-    <!-- Header -->
+  <!-- Main Dashboard View -->
+  <div v-if="!selectedDepartment && user" class="container mt-5">
+    <!-- Header with Profile Info -->
     <div class="row mb-4">
-      <div class="col-md-8">
-        <h2>Welcome, {{ userFirstName }}!</h2>
+      <div class="col-md-12">
+        <h2>Welcome {{ userFirstName }}</h2>
       </div>
     </div>
 
@@ -75,115 +116,67 @@ onMounted(async () => {
     </div>
 
     <!-- Dashboard Content -->
-    <div v-else-if="dashboard" class="row">
-      <!-- Quick Stats -->
-      <div class="col-md-3 mb-4">
-        <div class="card">
-          <div class="card-body text-center">
-            <h3 class="text-primary">--</h3>
-            <p class="text-muted small">Upcoming Appointments</p>
+    <div v-else-if="dashboard">
+      <!-- Departments Section -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Departments</h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div v-for="department in dashboard.departments" :key="department.id" class="col-md-6 mb-3">
+              <div class="d-flex justify-content-between align-items-center p-3 border rounded">
+                <span>{{ department.name }}</span>
+                <button class="btn btn-outline-primary btn-sm" @click="viewDepartment(department)">view details</button>
+              </div>
+            </div>
+            <div v-if="!dashboard.departments || dashboard.departments.length === 0" class="col-md-12">
+              <p class="text-center text-muted">No departments available</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="col-md-3 mb-4">
-        <div class="card">
-          <div class="card-body text-center">
-            <h3 class="text-success">--</h3>
-            <p class="text-muted small">Completed Treatments</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 mb-4">
-        <div class="card">
-          <div class="card-body text-center">
-            <h3 class="text-info">--</h3>
-            <p class="text-muted small">Active Prescriptions</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-3 mb-4">
-        <div class="card">
-          <div class="card-body text-center">
-            <h3 class="text-warning">--</h3>
-            <p class="text-muted small">My Doctors</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- My Doctors -->
-      <div class="col-md-12">
-        <div class="card">
-          <div class="card-header">
-            <h5 class="mb-0">My Doctors</h5>
-          </div>
-          <div class="card-body">
-            <table class="table">
-              <thead class="fw-normal">
-                <tr>
-                  <th scope="col">Doctor Name</th>
-                  <th scope="col">Specialization</th>
-                  <th scope="col">Total Appointments</th>
-                  <th scope="col">Last Visit</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="doctor in dashboard.patient_history" :key="doctor.patient_id">
-                  <td>{{ doctor.name }}</td>
-                  <td>{{ doctor.specialization || 'N/A' }}</td>
-                  <td>{{ doctor.total_appointments }}</td>
-                  <td>{{ new Date(doctor.last_visit).toLocaleDateString() }}</td>
-                  <td><button class="btn btn-outline-primary btn-sm">View</button></td>
-                </tr>
-                <tr v-if="!dashboard.patient_history || dashboard.patient_history.length === 0">
-                  <td colspan="5" class="text-center text-muted">No doctors assigned</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <br>
-        <!-- Upcoming Appointments -->
-        <div class="card">
-          <div class="card-header">
+      <!-- Upcoming Appointments Section -->
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Upcoming Appointments</h5>
+            <RouterLink to="/book-appointment" class="btn btn-primary btn-sm">
+              + Book Appointment
+            </RouterLink>
           </div>
-          <div class="card-body">
-            <table class="table">
-              <thead class="fw-normal">
-                <tr>
-                  <th scope="col">Sr No.</th>
-                  <th scope="col">Doctor Name</th>
-                  <th scope="col">Department</th>
-                  <th scope="col">Date</th>
-                  <th scope="col">Time</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="appointment in dashboard.upcoming_appointments" :key="appointment.id">
-                  <td>{{ appointment.id }}</td>
-                  <td>{{ appointment.doctor.name }}</td>
-                  <td>{{ appointment.doctor.department || 'N/A' }}</td>
-                  <td>{{ new Date(appointment.date).toLocaleDateString() }}</td>
-                  <td>{{ new Date(appointment.time).toLocaleTimeString() }}</td>
-                  <td>{{ appointment.status }}</td>
-                  <td>
-                    <button class="btn btn-outline-primary btn-sm">View</button>
-                    <button class="btn btn-outline-secondary btn-sm">Edit</button>
-                    <button class="btn btn-outline-danger btn-sm">Cancel</button>
-                  </td>
-                </tr>
-                <tr v-if="!dashboard.upcoming_appointments || dashboard.upcoming_appointments.length === 0">
-                  <td colspan="7" class="text-center text-muted">No upcoming appointments</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        </div>
+        <div class="card-body">
+          <table class="table">
+            <thead class="fw-normal">
+              <tr>
+                <th scope="col">Sr No.</th>
+                <th scope="col">Doctor Name</th>
+                <th scope="col">Department</th>
+                <th scope="col">Date</th>
+                <th scope="col">Time</th>
+                <th scope="col">Status</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="appointment in dashboard.upcoming_appointments" :key="appointment.id">
+                <td>{{ appointment.id }}</td>
+                <td>{{ appointment.doctor.name }}</td>
+                <td>{{ appointment.doctor.department || 'N/A' }}</td>
+                <td>{{ new Date(appointment.date).toLocaleDateString() }}</td>
+                <td>{{ new Date(appointment.time).toLocaleTimeString() }}</td>
+                <td><span class="badge bg-warning">{{ appointment.status }}</span></td>
+                <td>
+                  <button class="btn btn-outline-danger btn-sm" @click="cancelAppointment(appointment)">Cancel</button>
+                </td>
+              </tr>
+              <tr v-if="!dashboard.upcoming_appointments || dashboard.upcoming_appointments.length === 0">
+                <td colspan="7" class="text-center text-muted">No upcoming appointments</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -191,6 +184,55 @@ onMounted(async () => {
     <!-- Empty State -->
     <div v-else class="alert alert-warning">
       No dashboard data available
+    </div>
+  </div>
+
+  <!-- Department Detail View -->
+  <div v-else-if="selectedDepartment && user" class="container mt-5">
+    <!-- Department Header -->
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <button class="btn btn-link btn-sm" @click="closeDepartmentView">← Back</button>
+        <h2>Department of {{ selectedDepartment.name }}</h2>
+      </div>
+    </div>
+
+    <!-- Department Content -->
+    <div class="card">
+      <div class="card-body">
+        <!-- Overview Section -->
+        <div class="mb-5">
+          <h5 class="mb-3">Overview</h5>
+          <p>{{ selectedDepartment.description || 'No description available' }}</p>
+        </div>
+
+        <!-- Doctors List Section -->
+        <div>
+          <h5 class="mb-3">Doctors List</h5>
+          <table class="table">
+            <thead class="fw-normal">
+              <tr>
+                <th scope="col">Doctor Name</th>
+                <th scope="col">Specialization</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="doctor in selectedDepartment.doctors" :key="doctor.id">
+                <td>{{ doctor.name }}</td>
+                <td>{{ doctor.specialization || 'N/A' }}</td>
+                <td>
+                  <button class="btn btn-outline-primary btn-sm">check availability</button>
+                  <button class="btn btn-outline-primary btn-sm">view details</button>
+                </td>
+              </tr>
+              <tr v-if="!selectedDepartment.doctors || selectedDepartment.doctors.length === 0">
+                <td colspan="3" class="text-center text-muted">No doctors available</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 

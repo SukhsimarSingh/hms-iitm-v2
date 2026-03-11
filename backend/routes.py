@@ -596,8 +596,9 @@ def admin_dashboard():
             "active_patients": len([p for p in patients_list if p['active']]),
             "blacklisted_patients": len([p for p in patients_list if not p['active']]),
             "total_appointments": len(appointments_list),
-            "pending_appointments": len([a for a in appointments_list if a['status'] == 'pending']),
-            "completed_appointments": len([a for a in appointments_list if a['status'] == 'completed'])
+            "pending_appointments": len([a for a in appointments_list if a['status'] == 'Pending']),
+            "completed_appointments": len([a for a in appointments_list if a['status'] == 'Completed']),
+            "cancelled_appointments": len([a for a in appointments_list if a['status'] == 'Cancelled'])
         }
         
         return jsonify({
@@ -642,6 +643,10 @@ def doctor_dashboard():
             patient_record = Patient.query.get(appointment.patient_id)
             patient_user = User.query.get(patient_record.user_id) if patient_record else None
             
+            # Skip blacklisted patients
+            if patient_user and not patient_user.active:
+                continue
+            
             appointment_info = {
                 "id": appointment.id,
                 "date": appointment.date.isoformat() if appointment.date else None,
@@ -678,6 +683,10 @@ def doctor_dashboard():
             if patient_record:
                 patient_user = User.query.get(patient_record.user_id)
                 
+                # Skip blacklisted patients
+                if patient_user and not patient_user.active:
+                    continue
+                
                 # Count appointments for this patient
                 patient_appointments = [a for a in all_appointments if a.patient_id == patient_id]
                 
@@ -697,8 +706,8 @@ def doctor_dashboard():
         # Statistics
         stats = {
             "total_appointments": len(all_appointments),
-            "upcoming_appointments": len([a for a in appointments_list if a['status'] == 'pending']),
-            "completed_appointments": len([a for a in all_appointments if a.status == 'completed']),
+            "upcoming_appointments": len([a for a in appointments_list if a['status'] == 'Pending']),
+            "completed_appointments": len([a for a in all_appointments if a.status == 'Completed']),
             "total_patients": len(patient_history)
         }
         
@@ -860,9 +869,9 @@ def patient_dashboard():
         # Statistics
         stats = {
             "total_appointments": len(appointments_list),
-            "upcoming_appointments": len([a for a in appointments_list if a['status'] == 'pending']),
-            "completed_appointments": len([a for a in appointments_list if a['status'] == 'completed']),
-            "cancelled_appointments": len([a for a in appointments_list if a['status'] == 'cancelled'])
+            "upcoming_appointments": len([a for a in appointments_list if a['status'] == 'Pending']),
+            "completed_appointments": len([a for a in appointments_list if a['status'] == 'Completed']),
+            "cancelled_appointments": len([a for a in appointments_list if a['status'] == 'Cancelled'])
         }
         
         return jsonify({
@@ -928,11 +937,24 @@ def create_appointment():
             return jsonify({"message": "You can only book appointments for yourself"}), 403
     
     try:
-        from datetime import datetime as dt
+        from datetime import datetime as dt, time as time_obj
         
         # Parse date and time
-        appointment_date = dt.fromisoformat(date).date() if isinstance(date, str) else date
-        appointment_time = dt.fromisoformat(time).time() if isinstance(time, str) else time
+        if isinstance(date, str):
+            appointment_date = dt.fromisoformat(date).date()
+        else:
+            appointment_date = date
+            
+        if isinstance(time, str):
+            # Parse time string (HH:MM:SS or HH:MM format)
+            if 'T' in time:
+                appointment_time = dt.fromisoformat(time).time()
+            else:
+                # Handle time-only format
+                parts = time.split(':')
+                appointment_time = time_obj(int(parts[0]), int(parts[1]), int(parts[2]) if len(parts) > 2 else 0)
+        else:
+            appointment_time = time
         
         # CONFLICT PREVENTION: Check for double booking
         # Check if doctor already has an appointment at this date and time
@@ -941,7 +963,7 @@ def create_appointment():
             date=appointment_date,
             time=appointment_time
         ).filter(
-            Appointment.status.in_(['pending', 'confirmed'])
+            Appointment.status.in_(['Pending', 'Confirmed'])
         ).first()
         
         if existing_appointment:
@@ -961,7 +983,7 @@ def create_appointment():
             date=appointment_date,
             time=appointment_time
         ).filter(
-            Appointment.status.in_(['pending', 'confirmed'])
+            Appointment.status.in_(['Pending', 'Confirmed'])
         ).first()
         
         if patient_conflict:
@@ -981,7 +1003,7 @@ def create_appointment():
             doctor_id=doctor_id,
             date=appointment_date,
             time=appointment_time,
-            status='pending'
+            status='Pending'
         )
         
         db.session.add(appointment)
@@ -1051,7 +1073,7 @@ def update_appointment(appointment_id):
                 time=check_time
             ).filter(
                 Appointment.id != appointment_id,  # Exclude current appointment
-                Appointment.status.in_(['pending', 'confirmed'])
+                Appointment.status.in_(['Pending', 'Confirmed'])
             ).first()
             
             if conflict:
@@ -1074,7 +1096,7 @@ def update_appointment(appointment_id):
             # Only doctors and admins can change status
             if current_user.role in ['doctor', 'admin']:
                 # Validate status
-                valid_statuses = ['pending', 'confirmed', 'completed', 'cancelled']
+                valid_statuses = ['Pending', 'Confirmed', 'Completed', 'Cancelled']
                 if data['status'] not in valid_statuses:
                     return jsonify({
                         "message": "Invalid status",
@@ -1129,7 +1151,7 @@ def cancel_appointment(appointment_id):
         return jsonify({"message": "You are not authorized to cancel this appointment"}), 403
     
     try:
-        appointment.status = 'cancelled'
+        appointment.status = 'Cancelled'
         db.session.commit()
         
         return jsonify({
@@ -1254,9 +1276,9 @@ def get_all_appointments():
         # Calculate statistics
         stats = {
             "total": len(appointments_list),
-            "pending": len([a for a in appointments_list if a['status'] == 'pending']),
-            "completed": len([a for a in appointments_list if a['status'] == 'completed']),
-            "cancelled": len([a for a in appointments_list if a['status'] == 'cancelled']),
+            "pending": len([a for a in appointments_list if a['status'] == 'Pending']),
+            "completed": len([a for a in appointments_list if a['status'] == 'Completed']),
+            "cancelled": len([a for a in appointments_list if a['status'] == 'Cancelled']),
             "with_treatment": len([a for a in appointments_list if a['has_treatment']])
         }
         
@@ -1365,3 +1387,77 @@ def get_appointment_details(appointment_id):
         
     except Exception as e:
         return jsonify({"message": f"Error retrieving appointment details: {str(e)}"}), 500
+
+
+# GET APPOINTMENTS HISTORY
+@views.route('/api/appointments/history', methods=['GET'])
+@jwt_required()
+def get_appointments_history():
+    """Get user's appointment history with treatment details"""
+    try:
+        user_id = current_user.id
+        
+        if current_user.role == 'patient':
+            appointments = Appointment.query.join(Patient).filter(
+                Patient.user_id == user_id
+            ).all()
+            # Get patient info
+            patient = Patient.query.filter_by(user_id=user_id).first()
+            patient_info = {
+                'name': f"{current_user.first_name} {current_user.last_name}",
+                'doctor_name': None,
+                'department': None
+            }
+        elif current_user.role == 'doctor':
+            appointments = Appointment.query.filter_by(doctor_id=current_user.doctor.id).all()
+            patient_info = None
+        else:
+            appointments = Appointment.query.all()
+            patient_info = None
+        
+        visits = []
+        for apt in appointments:
+            visit = {
+                'visit_no': apt.id,
+                'visit_type': 'In-person',
+                'date': apt.date.isoformat() if apt.date else None,
+                'time': apt.time.isoformat() if apt.time else None,
+                'status': apt.status,
+                'tests_done': '',
+                'diagnosis': '',
+                'prescription': '',
+                'medicines': ''
+            }
+            
+            # Get treatment details if they exist
+            if apt.treatment:
+                visit['diagnosis'] = apt.treatment.diagnosis or ''
+                visit['prescription'] = apt.treatment.prescription or ''
+                visit['notes'] = apt.treatment.notes or ''
+                
+                # Get medicines
+                if apt.treatment.medicine:
+                    medicine_names = [med.name for med in apt.treatment.medicine]
+                    visit['medicines'] = ', '.join(medicine_names) if medicine_names else ''
+            
+            visits.append(visit)
+        
+        # Set first doctor info for patient view
+        if current_user.role == 'patient' and visits and patient_info:
+            first_appointment = appointments[0] if appointments else None
+            if first_appointment and first_appointment.doctor:
+                patient_info['doctor_name'] = first_appointment.doctor.name
+                patient_info['department'] = first_appointment.doctor.specialization
+        
+        return jsonify({
+            'patient_info': patient_info,
+            'visits': visits,
+            'statistics': {
+                'total_appointments': len(visits),
+                'pending_appointments': len([v for v in visits if v['status'] == 'Pending']),
+                'completed_appointments': len([v for v in visits if v['status'] == 'Completed']),
+                'cancelled_appointments': len([v for v in visits if v['status'] == 'Cancelled'])
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'message': f"Error: {str(e)}"}), 500

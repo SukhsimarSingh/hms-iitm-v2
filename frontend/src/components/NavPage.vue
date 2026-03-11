@@ -65,6 +65,16 @@ onMounted(() => {
               </RouterLink>
             </li>
             <li class="nav-item">
+              <RouterLink class="nav-link" to="/profile" @click="closeNav">
+                Edit Profile
+              </RouterLink>
+            </li>
+            <li class="nav-item">
+              <RouterLink class="nav-link" to="/history" @click="closeNav">
+                History
+              </RouterLink>
+            </li>
+            <li class="nav-item">
               <button class="nav-link" @click="handleLogout">
                 Logout
               </button>
@@ -115,5 +125,14 @@ onMounted(() => {
 .btn-danger:hover {
   background-color: #bb2d3b;
   border-color: #b02a37;
+}
+
+.nav-link.btn {
+  border: none;
+  background: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
 }
 </style>

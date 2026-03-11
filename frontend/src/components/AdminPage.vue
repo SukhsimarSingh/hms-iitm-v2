@@ -15,8 +15,21 @@ const showDoctorModal = ref(false)
 const showPatientModal = ref(false)
 const showEditDoctorModal = ref(false)
 const showEditPatientModal = ref(false)
+const showCreateDoctorModal = ref(false)
 const editDoctorForm = ref(null)
 const editPatientForm = ref(null)
+const selectedAppointment = ref(null)
+const showAppointmentModal = ref(false)
+const createDoctorForm = ref({
+  username: '',
+  first_name: '',
+  last_name: '',
+  email: '',
+  password: '',
+  specialization: '',
+  department: '',
+  experience: ''
+})
 
 onMounted(async () => {
   token.value = localStorage.getItem('token')
@@ -56,12 +69,6 @@ onMounted(async () => {
     isLoading.value = false
   }
 })
-
-const handleLogout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  router.push('/')
-}
 
 const viewDoctor = (doctor) => {
   selectedDoctor.value = doctor
@@ -266,10 +273,83 @@ const blacklistPatient = async (patient) => {
     console.error('Error:', error)
   }
 }
+
+const openCreateDoctorModal = () => {
+  createDoctorForm.value = {
+    username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    specialization: '',
+    department: '',
+    experience: ''
+  }
+  showCreateDoctorModal.value = true
+}
+
+const closeCreateDoctorModal = () => {
+  showCreateDoctorModal.value = false
+  createDoctorForm.value = {
+    username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    specialization: '',
+    department: '',
+    experience: ''
+  }
+}
+
+const saveNewDoctor = async () => {
+  // Validate required fields
+  if (!createDoctorForm.value.username || !createDoctorForm.value.first_name || !createDoctorForm.value.last_name ||
+    !createDoctorForm.value.email || !createDoctorForm.value.password || !createDoctorForm.value.specialization ||
+    !createDoctorForm.value.department) {
+    errorMessage.value = 'Please fill in all required fields'
+    return
+  }
+
+  try {
+    const response = await fetch('http://localhost:5000/api/add/doctor', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.value}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(createDoctorForm.value),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      successMessage.value = 'Doctor created successfully'
+      setTimeout(() => { successMessage.value = '' }, 3000)
+      closeCreateDoctorModal()
+      location.reload()
+    } else {
+      errorMessage.value = data.message || 'Failed to create doctor'
+    }
+  } catch (error) {
+    errorMessage.value = 'An error occurred while creating doctor'
+    console.error('Error:', error)
+  }
+}
+
+const viewAppointment = (appointment) => {
+  selectedAppointment.value = appointment
+  showAppointmentModal.value = true
+}
+
+const closeAppointmentModal = () => {
+  showAppointmentModal.value = false
+  selectedAppointment.value = null
+}
 </script>
 
 <template>
-  <div class="container mt-5" v-if="adminData">
+  <div class="container mt-5" v-if="user">
     <!-- Header -->
     <div class="row mb-4">
       <div class="col-md-8">
@@ -284,7 +364,7 @@ const blacklistPatient = async (patient) => {
     </div>
 
     <!-- Success Message -->
-    <div v-if="successMessage" class="alert alert-success alert-dismissible fade show">
+    <div v-else-if="successMessage" class="alert alert-success alert-dismissible fade show">
       {{ successMessage }}
       <button type="button" class="btn-close" @click="successMessage = ''"></button>
     </div>
@@ -334,7 +414,10 @@ const blacklistPatient = async (patient) => {
       <div class="col-md-12">
         <div class="card">
           <div class="card-header">
-            <h5 class="mb-0">Registered Doctors</h5>
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">Registered Doctors</h5>
+              <button class="btn btn-primary btn-sm" @click="openCreateDoctorModal">+ Add Doctor</button>
+            </div>
           </div>
           <div class="card-body">
             <table class="table">
@@ -419,19 +502,14 @@ const blacklistPatient = async (patient) => {
               <tbody>
                 <tr v-for="appointment in adminData.upcoming_appointments" :key="appointment.id">
                   <td>{{ appointment.id }}</td>
-                  <td>{{ appointment.patient.name }}</td>
-                  <td>{{ appointment.doctor.name }}</td>
-                  <td>{{ appointment.doctor.department.name }}</td>
+                  <td>{{ appointment.patient?.name || 'N/A' }}</td>
+                  <td>{{ appointment.doctor?.name || 'N/A' }}</td>
+                  <td>{{ appointment.doctor?.department?.name || 'N/A' }}</td>
                   <td>{{ new Date(appointment.date).toLocaleDateString() }}</td>
                   <td>{{ new Date(appointment.time).toLocaleTimeString() }}</td>
                   <td>{{ appointment.status }}</td>
                   <td>
                     <button class="btn btn-outline-primary btn-sm" @click="viewAppointment(appointment)">View</button>
-                    <button class="btn btn-outline-secondary btn-sm" @click="editAppointment(appointment)">Edit</button>
-                    <button class="btn btn-outline-danger btn-sm"
-                      @click="deleteAppointment(appointment)">Delete</button>
-                    <button class="btn btn-outline-warning btn-sm"
-                      @click="cancelAppointment(appointment)">Cancel</button>
                   </td>
                 </tr>
                 <tr v-if="!adminData.upcoming_appointments || adminData.upcoming_appointments.length === 0">
@@ -442,6 +520,13 @@ const blacklistPatient = async (patient) => {
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Not Logged In -->
+  <div v-else class="container mt-5">
+    <div class="alert alert-warning">
+      <p>Please <RouterLink to="/login">login</RouterLink> to view admin dashboard</p>
     </div>
   </div>
 
@@ -629,6 +714,150 @@ const blacklistPatient = async (patient) => {
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" @click="closeEditPatientModal">Cancel</button>
           <button type="button" class="btn btn-primary" @click="saveEditedPatient">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Doctor Modal -->
+  <div v-if="showCreateDoctorModal" class="modal d-block" style="background-color: rgba(0, 0, 0, 0.5);">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add a new Doctor</h5>
+          <button type="button" class="btn-close" @click="closeCreateDoctorModal"></button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="saveNewDoctor">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Username <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.username" type="text" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Email <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.email" type="email" class="form-control" required>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">First Name <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.first_name" type="text" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.last_name" type="text" class="form-control" required>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Password <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.password" type="password" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Experience (years)</label>
+                <input v-model="createDoctorForm.experience" type="number" class="form-control">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Specialization <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.specialization" type="text" class="form-control"
+                  placeholder="e.g., Cardiology" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Department <span class="text-danger">*</span></label>
+                <input v-model="createDoctorForm.department" type="text" class="form-control"
+                  placeholder="e.g., Cardiology" required>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" @click="closeCreateDoctorModal">Cancel</button>
+          <button type="button" class="btn btn-primary" @click="saveNewDoctor">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Appointment Details Modal -->
+  <div v-if="showAppointmentModal" class="modal d-block" style="background-color: rgba(0, 0, 0, 0.5);">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Appointment Details</h5>
+          <button type="button" class="btn-close" @click="closeAppointmentModal"></button>
+        </div>
+        <div class="modal-body" v-if="selectedAppointment">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Appointment ID:</label>
+              <p>{{ selectedAppointment.id }}</p>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Status:</label>
+              <p>
+                <span :class="{
+                  'badge bg-warning': selectedAppointment.status === 'pending',
+                  'badge bg-success': selectedAppointment.status === 'confirmed',
+                  'badge bg-danger': selectedAppointment.status === 'Cancelled',
+                  'badge bg-info': selectedAppointment.status === 'completed'
+                }">
+                  {{ selectedAppointment.status }}
+                </span>
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Patient Name:</label>
+              <p>{{ selectedAppointment.patient?.name || 'N/A' }}</p>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Patient Contact:</label>
+              <p>{{ selectedAppointment.patient?.contact || 'N/A' }}</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Doctor Name:</label>
+              <p>{{ selectedAppointment.doctor?.name || 'N/A' }}</p>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Department:</label>
+              <p>{{ selectedAppointment.doctor?.department?.name || 'N/A' }}</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Date:</label>
+              <p>{{ new Date(selectedAppointment.date).toLocaleDateString() }}</p>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Time:</label>
+              <p>{{ new Date(selectedAppointment.time).toLocaleTimeString() }}</p>
+            </div>
+          </div>
+          <div v-if="selectedAppointment.treatment" class="row">
+            <div class="col-md-12 mb-3">
+              <label class="form-label fw-bold">Treatment Information:</label>
+              <div class="alert alert-light">
+                <p v-if="selectedAppointment.treatment.diagnosis">
+                  <strong>Diagnosis:</strong> {{ selectedAppointment.treatment.diagnosis }}
+                </p>
+                <p v-if="selectedAppointment.treatment.prescription">
+                  <strong>Prescription:</strong> {{ selectedAppointment.treatment.prescription }}
+                </p>
+                <p v-if="selectedAppointment.treatment.notes">
+                  <strong>Notes:</strong> {{ selectedAppointment.treatment.notes }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" @click="closeAppointmentModal">Close</button>
         </div>
       </div>
     </div>
