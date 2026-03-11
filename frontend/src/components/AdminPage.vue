@@ -112,7 +112,7 @@ const closeEditPatientModal = () => {
 
 const saveEditedDoctor = async () => {
   try {
-    const response = await fetch(`http://localhost:5000/api/admin/doctor/${editDoctorForm.value.user_id}`, {
+    const response = await fetch(`http://localhost:5000/api/update/doctor/${editDoctorForm.value.user_id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token.value}`,
@@ -138,7 +138,7 @@ const saveEditedDoctor = async () => {
 
 const saveEditedPatient = async () => {
   try {
-    const response = await fetch(`http://localhost:5000/api/admin/patient/${editPatientForm.value.user_id}`, {
+    const response = await fetch(`http://localhost:5000/api/update/patient/${editPatientForm.value.user_id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token.value}`,
@@ -168,12 +168,13 @@ const deleteDoctor = async (doctor) => {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/admin/doctor/${doctor.user_id}`, {
+    const response = await fetch(`http://localhost:5000/api/remove/doctor`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token.value}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ doctor_id: doctor.user_id }),
     })
 
     if (response.ok) {
@@ -196,12 +197,13 @@ const deletePatient = async (patient) => {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/admin/patient/${patient.user_id}`, {
+    const response = await fetch(`http://localhost:5000/api/remove/patient`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token.value}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ patient_id: patient.user_id }),
     })
 
     if (response.ok) {
@@ -224,7 +226,7 @@ const blacklistDoctor = async (doctor) => {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/admin/doctor/${doctor.user_id}/blacklist`, {
+    const response = await fetch(`http://localhost:5000/api/blacklist/doctor/${doctor.user_id}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token.value}`,
@@ -252,7 +254,7 @@ const blacklistPatient = async (patient) => {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/admin/patient/${patient.user_id}/blacklist`, {
+    const response = await fetch(`http://localhost:5000/api/blacklist/patient/${patient.user_id}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token.value}`,
@@ -701,7 +703,6 @@ const closeAppointmentModal = () => {
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
-                  <option value="Other">Other</option>
                 </select>
               </div>
             </div>

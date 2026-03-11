@@ -19,6 +19,7 @@ class User(db.Model):
     # User information
     first_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, default='')
     last_name = db.Column(db.String(100, collation='NOCASE'), nullable=False, default='')
+    gender = db.Column(db.String(50), nullable=True)
 
     role = db.Column(db.String(255), nullable=False, default='patient')
 
@@ -60,6 +61,7 @@ class Patient(db.Model):
     name = db.Column(db.String, nullable=False)
     age = db.Column(db.Integer, nullable=False)
     contact = db.Column(db.String, nullable=False)
+    gender = db.Column(db.String(50), nullable=True)
     
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     appointment = db.relationship('Appointment', backref='patient')

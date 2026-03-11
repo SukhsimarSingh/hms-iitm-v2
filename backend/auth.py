@@ -25,12 +25,14 @@ def register():
     # Create new user
     first_name = data.get('first_name', '')
     last_name = data.get('last_name', '')
+    gender = data.get('gender', None)
     
     user = User(
         username=data['username'],
         email=data['email'],
         first_name=first_name,
         last_name=last_name,
+        gender=gender,
         role='patient'
     )
     user.set_password(data['password'])
@@ -43,7 +45,8 @@ def register():
         user_id=user.id,
         name=f"{first_name} {last_name}".strip() or data['username'],
         age=data.get('age', None),
-        contact=data.get('contact', '')
+        contact=data.get('contact', ''),
+        gender=gender
     )
     db.session.add(patient)
     db.session.commit()
@@ -83,6 +86,7 @@ def login():
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "gender": user.gender,
             "role": user.role,
             "active": user.active
         }

@@ -64,12 +64,12 @@ onMounted(() => {
                 Dashboard
               </RouterLink>
             </li>
-            <li class="nav-item">
+            <li v-if="user.role !== 'admin'" class="nav-item">
               <RouterLink class="nav-link" to="/profile" @click="closeNav">
                 Edit Profile
               </RouterLink>
             </li>
-            <li class="nav-item">
+            <li v-if="user.role !== 'admin'" class="nav-item">
               <RouterLink class="nav-link" to="/history" @click="closeNav">
                 History
               </RouterLink>

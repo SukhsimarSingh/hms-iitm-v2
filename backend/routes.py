@@ -1463,3 +1463,46 @@ def get_appointments_history():
         }), 200
     except Exception as e:
         return jsonify({'message': f"Error: {str(e)}"}), 500
+
+
+# USER PROFILE UPDATE
+@views.route('/api/user/profile', methods=['PUT', 'PATCH'])
+@jwt_required()
+def update_user_profile():
+    """Update user profile information"""
+    
+    try:
+        user = current_user
+        data = request.get_json() or {}
+        
+        # Update user fields
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+        
+        if 'last_name' in data:
+            user.last_name = data['last_name']
+        
+        if 'email' in data:
+            user.email = data['email']
+        
+        if 'gender' in data:
+            user.gender = data['gender']
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Profile updated successfully",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "gender": user.gender,
+                "role": user.role
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Error updating profile: {str(e)}"}), 500

@@ -30,32 +30,21 @@ onMounted(async () => {
       },
     })
 
+    const data = await response.json()
+
     if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`)
+      console.error('Backend error:', data)
+      throw new Error(data.message || `HTTP Error: ${response.status}`)
     }
 
-    const data = await response.json()
     history.value = data
   } catch (error) {
-    errorMessage.value = 'Appointment history endpoint not yet configured. Please check with your administrator.'
-    console.error('Error:', error)
+    console.error('Error fetching history:', error)
+    errorMessage.value = error.message || 'Appointment history endpoint not yet configured. Please check with your administrator.'
   } finally {
     isLoading.value = false
   }
 })
-
-const getStatusBadgeClass = (status) => {
-  switch (status) {
-    case 'Completed':
-      return 'bg-success'
-    case 'Pending':
-      return 'bg-warning'
-    case 'Cancelled':
-      return 'bg-danger'
-    default:
-      return 'bg-secondary'
-  }
-}
 </script>
 
 <template>
@@ -82,8 +71,28 @@ const getStatusBadgeClass = (status) => {
       Loading appointment history...
     </div>
 
+    <!-- Patient Info Card -->
+    <div v-else-if="history && history.patient_info" class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0">Patient Information</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <p><strong>Patient Name:</strong> {{ history.patient_info.name || 'N/A' }}</p>
+          </div>
+          <div class="col-md-4">
+            <p><strong>Doctor:</strong> {{ history.patient_info.doctor_name || 'N/A' }}</p>
+          </div>
+          <div class="col-md-4">
+            <p><strong>Department:</strong> {{ history.patient_info.department || 'N/A' }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- History Table -->
-    <div v-else class="card">
+    <div v-if="history" class="card">
       <div class="card-header">
         <h5 class="mb-0">Visit History</h5>
       </div>
