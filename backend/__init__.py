@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_migrate import Migrate
+from flask_cors import CORS
 from datetime import datetime
 from dotenv import load_dotenv
 import os
@@ -28,6 +29,7 @@ def create_app():
     
     db.init_app(app)
     jwt.init_app(app)
+    CORS(app)
     
     migrate = Migrate(app=app, db=db, render_as_batch=True)
 
