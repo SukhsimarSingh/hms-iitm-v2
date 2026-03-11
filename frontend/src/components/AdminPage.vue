@@ -799,10 +799,10 @@ const closeAppointmentModal = () => {
               <label class="form-label fw-bold">Status:</label>
               <p>
                 <span :class="{
-                  'badge bg-warning': selectedAppointment.status === 'pending',
-                  'badge bg-success': selectedAppointment.status === 'confirmed',
+                  'badge bg-warning': selectedAppointment.status === 'Pending',
+                  'badge bg-success': selectedAppointment.status === 'Confirmed',
                   'badge bg-danger': selectedAppointment.status === 'Cancelled',
-                  'badge bg-info': selectedAppointment.status === 'completed'
+                  'badge bg-info': selectedAppointment.status === 'Completed'
                 }">
                   {{ selectedAppointment.status }}
                 </span>
@@ -811,12 +811,22 @@ const closeAppointmentModal = () => {
           </div>
           <div class="row">
             <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Patient ID:</label>
+              <p>{{ selectedAppointment.patient_id || 'N/A' }}</p>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Doctor ID:</label>
+              <p>{{ selectedAppointment.doctor_id || 'N/A' }}</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
               <label class="form-label fw-bold">Patient Name:</label>
               <p>{{ selectedAppointment.patient?.name || 'N/A' }}</p>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold">Patient Contact:</label>
-              <p>{{ selectedAppointment.patient?.contact || 'N/A' }}</p>
+              <label class="form-label fw-bold">Patient Username:</label>
+              <p>{{ selectedAppointment.patient?.username || 'N/A' }}</p>
             </div>
           </div>
           <div class="row">
@@ -825,8 +835,14 @@ const closeAppointmentModal = () => {
               <p>{{ selectedAppointment.doctor?.name || 'N/A' }}</p>
             </div>
             <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Specialization:</label>
+              <p>{{ selectedAppointment.doctor?.specialization || 'N/A' }}</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
               <label class="form-label fw-bold">Department:</label>
-              <p>{{ selectedAppointment.doctor?.department?.name || 'N/A' }}</p>
+              <p>{{ selectedAppointment.doctor?.department || 'N/A' }}</p>
             </div>
           </div>
           <div class="row">

@@ -572,6 +572,8 @@ def admin_dashboard():
                 "date": appointment.date.isoformat() if appointment.date else None,
                 "time": appointment.time.isoformat() if appointment.time else None,
                 "status": appointment.status,
+                "patient_id": appointment.patient_id,
+                "doctor_id": appointment.doctor_id,
                 "patient": {
                     "id": patient.id if patient else None,
                     "name": f"{patient.first_name} {patient.last_name}" if patient else "N/A",
