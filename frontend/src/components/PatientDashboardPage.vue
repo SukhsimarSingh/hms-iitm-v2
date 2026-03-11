@@ -113,8 +113,40 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Upcoming Appointments -->
+      <!-- My Doctors -->
       <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">My Doctors</h5>
+          </div>
+          <div class="card-body">
+            <table class="table">
+              <thead class="fw-normal">
+                <tr>
+                  <th scope="col">Doctor Name</th>
+                  <th scope="col">Specialization</th>
+                  <th scope="col">Total Appointments</th>
+                  <th scope="col">Last Visit</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="doctor in dashboard.patient_history" :key="doctor.patient_id">
+                  <td>{{ doctor.name }}</td>
+                  <td>{{ doctor.specialization || 'N/A' }}</td>
+                  <td>{{ doctor.total_appointments }}</td>
+                  <td>{{ new Date(doctor.last_visit).toLocaleDateString() }}</td>
+                  <td><button class="btn btn-outline-primary btn-sm">View</button></td>
+                </tr>
+                <tr v-if="!dashboard.patient_history || dashboard.patient_history.length === 0">
+                  <td colspan="5" class="text-center text-muted">No doctors assigned</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <br>
+        <!-- Upcoming Appointments -->
         <div class="card">
           <div class="card-header">
             <h5 class="mb-0">Upcoming Appointments</h5>
@@ -124,8 +156,8 @@ onMounted(async () => {
               <thead class="fw-normal">
                 <tr>
                   <th scope="col">Sr No.</th>
-                  <th scope="col">Patient Name</th>
-                  <th scope="col">Patient History</th>
+                  <th scope="col">Doctor Name</th>
+                  <th scope="col">Department</th>
                   <th scope="col">Date</th>
                   <th scope="col">Time</th>
                   <th scope="col">Status</th>
@@ -135,50 +167,19 @@ onMounted(async () => {
               <tbody>
                 <tr v-for="appointment in dashboard.upcoming_appointments" :key="appointment.id">
                   <td>{{ appointment.id }}</td>
-                  <td>{{ appointment.patient.name }}</td>
-                  <td>{{ appointment.patient.username }}</td>
-                  <td><button class="btn btn-primary">Update History</button></td>
+                  <td>{{ appointment.doctor.name }}</td>
+                  <td>{{ appointment.doctor.department || 'N/A' }}</td>
                   <td>{{ new Date(appointment.date).toLocaleDateString() }}</td>
                   <td>{{ new Date(appointment.time).toLocaleTimeString() }}</td>
                   <td>{{ appointment.status }}</td>
                   <td>
-                    <button class="btn btn-primary">View</button>
-                    <button class="btn btn-secondary">Edit</button>
-                    <button class="btn btn-danger">Cancel</button>
+                    <button class="btn btn-outline-primary btn-sm">View</button>
+                    <button class="btn btn-outline-secondary btn-sm">Edit</button>
+                    <button class="btn btn-outline-danger btn-sm">Cancel</button>
                   </td>
                 </tr>
                 <tr v-if="!dashboard.upcoming_appointments || dashboard.upcoming_appointments.length === 0">
                   <td colspan="7" class="text-center text-muted">No upcoming appointments</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <br>
-        <!-- Assigned Patients -->
-        <div class="card">
-          <div class="card-header">
-            <h5 class="mb-0">Assigned Patients</h5>
-          </div>
-          <div class="card-body">
-            <table class="table">
-              <thead class="fw-normal">
-                <tr>
-                  <th scope="col">Patient</th>
-                  <th scope="col">Total Appointments</th>
-                  <th scope="col">Last Visit</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="patient in dashboard.patient_history" :key="patient.patient_id">
-                  <td>{{ patient.name }}</td>
-                  <td>{{ patient.total_appointments }}</td>
-                  <td>{{ new Date(patient.last_visit).toLocaleDateString() }}</td>
-                  <td><button class="btn btn-primary">View</button></td>
-                </tr>
-                <tr v-if="!dashboard.patient_history || dashboard.patient_history.length === 0">
-                  <td colspan="4" class="text-center text-muted">No assigned patients</td>
                 </tr>
               </tbody>
             </table>
@@ -206,9 +207,9 @@ import { RouterLink } from 'vue-router'
 </script>
 
 <style scoped>
-h1 {
+h1,
+h2 {
   color: #333;
-  font-weight: bold;
 }
 
 .text-muted {
@@ -235,8 +236,14 @@ h1 {
   margin: 0;
 }
 
+.table {
+  margin-bottom: 0;
+}
+
 .table thead th {
-  font-weight: normal;
+  border-top: none;
+  background-color: #f8f9fa;
+  font-weight: 600;
 }
 
 .btn-outline-danger:hover {

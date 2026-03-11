@@ -209,7 +209,6 @@ import { RouterLink } from 'vue-router'
 h1,
 h2 {
   color: #333;
-  font-weight: bold;
 }
 
 .text-muted {
