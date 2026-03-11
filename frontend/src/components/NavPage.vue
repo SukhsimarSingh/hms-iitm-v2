@@ -69,7 +69,7 @@ onMounted(() => {
                 Edit Profile
               </RouterLink>
             </li>
-            <li v-if="user.role !== 'admin'" class="nav-item">
+            <li v-if="user.role === 'patient'" class="nav-item">
               <RouterLink class="nav-link" to="/history" @click="closeNav">
                 History
               </RouterLink>

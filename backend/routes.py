@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from flask_jwt_extended import jwt_required, current_user
 
-from backend.models import User, Doctor, Patient, Appointment
+from backend.models import User, Doctor, Patient, Appointment, Department
 from backend.database import db
 from backend.security import roles_required
 
@@ -124,13 +124,17 @@ def add_doctor():
             try:
                 name = first_name + " " + last_name
                 
+                # Find department by name
+                dept = Department.query.filter_by(name=department).first()
+                department_id = dept.id if dept else None
+                
                 _user = User(username=username, first_name=first_name, last_name=last_name, email=email, role='doctor')
                 _user.set_password(password)
                 
                 db.session.add(_user)
                 db.session.flush()
 
-                _doctor = Doctor(name=name, specialization=specialization, department=department, experience=experience, user_id=_user.id)
+                _doctor = Doctor(name=name, specialization=specialization, department_id=department_id, experience=experience, user_id=_user.id)
                 
                 db.session.add(_doctor)
                 db.session.commit()
@@ -1506,3 +1510,59 @@ def update_user_profile():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Error updating profile: {str(e)}"}), 500
+
+
+# PATIENT HISTORY CSV EXPORT
+@views.route('/api/patient/export-history', methods=['POST'])
+@jwt_required()
+def request_patient_export():
+    """
+    Trigger async CSV export of patient's appointment history.
+    Returns task ID for tracking.
+    """
+    try:
+        from backend.tasks import export_patient_history_csv
+        
+        user = current_user
+        
+        if user.role != 'patient':
+            return jsonify({"message": "Only patients can export their history"}), 403
+        
+        # Trigger the async task
+        task = export_patient_history_csv.delay(user.id)
+        
+        return jsonify({
+            "message": "Export started. You will receive a notification when ready.",
+            "task_id": task.id,
+            "status": "pending"
+        }), 202
+    
+    except Exception as e:
+        return jsonify({"message": f"Error starting export: {str(e)}"}), 500
+
+
+# CHECK EXPORT STATUS
+@views.route('/api/patient/export-status/<task_id>', methods=['GET'])
+@jwt_required()
+def check_export_status(task_id):
+    """
+    Check the status of a CSV export task.
+    """
+    try:
+        from backend.celery_app import celery_app
+        
+        task_result = celery_app.AsyncResult(task_id)
+        
+        if task_result.state == 'PENDING':
+            response = {'status': 'pending', 'message': 'Task is being processed'}
+        elif task_result.state == 'SUCCESS':
+            response = {'status': 'completed', 'result': task_result.result}
+        elif task_result.state == 'FAILURE':
+            response = {'status': 'failed', 'error': str(task_result.info)}
+        else:
+            response = {'status': task_result.state}
+        
+        return jsonify(response), 200
+    
+    except Exception as e:
+        return jsonify({"message": f"Error checking status: {str(e)}"}), 500
